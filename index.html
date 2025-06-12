@@ -16,6 +16,18 @@
   <main>
     <section id="scanner-section">
       <div id="qr-reader"></div>
+      <div class="camera-controls">
+        <button id="camera-access-btn" class="camera-button">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 12c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3z"></path>
+            <path d="M12 12l-9 9"></path>
+            <path d="M12 12l9 9"></path>
+            <path d="M12 12l9-9"></path>
+            <path d="M12 12l-9-9"></path>
+          </svg>
+          Access Camera
+        </button>
+      </div>
       <p>Point your camera at the QR code to scan</p>
     </section>
 
@@ -23,7 +35,15 @@
       <div class="profile-container">
         <div id="profile-card"></div>
       </div>
-      <button id="scan-again">Scan Another QR</button>
+      <button id="scan-again" class="camera-button">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 12a6 6 0 0 0-6-6"></path>
+          <path d="M12 18a6 6 0 0 0 6-6"></path>
+          <path d="M12 6a6 6 0 0 0-6 6"></path>
+          <path d="M6 12a6 6 0 0 0 6 6"></path>
+        </svg>
+        Scan Another QR
+      </button>
     </section>
   </main>
 

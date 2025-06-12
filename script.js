@@ -13,8 +13,31 @@ const scannerSection = document.getElementById('scanner-section');
 let html5QrCode;
 
 // Initialize QR scanner when page loads
-window.addEventListener('load', () => {
-  startScanner();
+document.addEventListener('DOMContentLoaded', () => {
+  // Initialize camera access button
+  const cameraAccessBtn = document.getElementById('camera-access-btn');
+  if (cameraAccessBtn) {
+    cameraAccessBtn.addEventListener('click', async () => {
+      try {
+        // Check if camera permissions are granted
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        stream.getTracks().forEach(track => track.stop());
+        startScanner();
+      } catch (err) {
+        console.error('Error accessing camera:', err);
+        alert('Error accessing camera: ' + err.message);
+      }
+    });
+  }
+
+  // Initialize scan again button
+  const scanAgainBtn = document.getElementById('scan-again');
+  if (scanAgainBtn) {
+    scanAgainBtn.addEventListener('click', () => {
+      showScannerSection();
+      startScanner();
+    });
+  }
 });
 
 function extractEmergencyId(text) {
@@ -25,12 +48,26 @@ function extractEmergencyId(text) {
 
 async function startScanner() {
   try {
+    // Hide the camera access button once scanner is active
+    const cameraAccessBtn = document.getElementById('camera-access-btn');
+    if (cameraAccessBtn) {
+      cameraAccessBtn.style.display = 'none';
+    }
+
     html5QrCode = new Html5Qrcode(qrRegionId);
     
     const config = {
       fps: 10,
       qrbox: { width: 250, height: 250 },
-      aspectRatio: 1
+      aspectRatio: 1,
+      qrboxStyle: {
+        borderColor: '#007991',
+        borderWidth: 2
+      },
+      scannerStyle: {
+        borderRadius: '12px',
+        border: '4px solid #007991'
+      }
     };
 
     const qrCodeSuccessCallback = (decodedText, decodedResult) => {
@@ -141,7 +178,6 @@ window.addEventListener('error', (event) => {
   if (match) return match[1];
   // Fallback: if the whole text is just the id
   return text.trim();
-
 
 async function fetchProfile(emergencyId) {
   const res = await fetch(`${BACKEND_BASE_URL}/api/emergency/${emergencyId}`);

@@ -48,63 +48,53 @@ function showError(message) {
 }
 
 // Initialize QR scanner when page loads
-document.addEventListener('DOMContentLoaded', () => {
-  // Initialize DOM elements
-  if (!initializeDOMElements()) {
-    showError('Error initializing the viewer. Please refresh the page.');
-    return;
-  }
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    // Initialize DOM elements
+    if (!initializeDOMElements()) {
+      showError('Error initializing the viewer. Please refresh the page.');
+      return;
+    }
 
-  // Initialize camera access button
-  if (cameraAccessBtn) {
-    cameraAccessBtn.addEventListener('click', async () => {
-      try {
-        // Request camera permissions
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        });
-        
-        // Stop any existing stream
-        if (html5QrCode) {
-          try {
-            await html5QrCode.stop();
-          } catch (e) {
-            console.error('Error stopping previous scanner:', e);
-          }
-        }
+    // Request camera permission immediately
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    // Create a temporary video element to check if camera is accessible
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.play();
+    // Clean up
+    video.srcObject = null;
+    stream.getTracks().forEach(track => track.stop());
 
-        // Start new scanner
-        await startScanner();
-        
-        // Hide camera access button
-        cameraAccessBtn.style.display = 'none';
-        
-        // Show loading state
-        showLoading('Initializing scanner...');
-      } catch (err) {
-        console.error('Error accessing camera:', err);
-        showError(`Error accessing camera: ${err.message}. Please try again.`);
-      }
-    });
-  }
-
-  // Initialize scan again button
-  if (scanAgainBtn) {
-    scanAgainBtn.addEventListener('click', () => {
-      try {
-        showScannerSection();
-        startScanner();
-      } catch (err) {
-        console.error('Error restarting scanner:', err);
-        showError('Error restarting scanner. Please try again.');
-      }
-    });
+    // Initialize QR scanner
+    html5QrCode = new Html5QrCode();
+    
+    // Start scanner immediately
+    startScanner();
+  } catch (err) {
+    console.error('Camera permission error:', err);
+    if (err.name === 'NotAllowedError') {
+      showError('Camera access denied. Please grant camera permission in your browser settings.');
+    } else if (err.name === 'NotFoundError') {
+      showError('No camera found. Please connect a camera device.');
+    } else {
+      showError('Unable to access camera. Please try again.');
+    }
   }
 });
+
+// Initialize scan again button
+if (scanAgainBtn) {
+  scanAgainBtn.addEventListener('click', () => {
+    try {
+      showScannerSection();
+      startScanner();
+    } catch (err) {
+      console.error('Error restarting scanner:', err);
+      showError('Error restarting scanner. Please try again.');
+    }
+  });
+}
 
 function extractEmergencyId(text) {
   // QR code format: emergency://<emergencyId>
@@ -173,37 +163,6 @@ async function startScanner() {
   } catch (err) {
     console.error('Error starting scanner:', err);
     showError(`Error starting scanner: ${err.message}. Please try again.`);
-  }
-}
-
-    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-      const emergencyId = extractEmergencyId(decodedText);
-      if (emergencyId) {
-        html5QrCode.stop().then(() => {
-          showProfileSection();
-          fetchProfile(emergencyId);
-        }).catch((err) => {
-          console.error('Error stopping scanner:', err);
-        });
-      }
-    };
-
-    const qrCodeFailureCallback = (err) => {
-      console.error('QR code scan error:', err);
-    };
-
-    try {
-      await html5QrCode.start({
-        facingMode: "environment" // Use back camera
-      }, config, qrCodeSuccessCallback, qrCodeFailureCallback);
-    } catch (err) {
-      console.error('Error starting scanner:', err);
-      alert('Error starting QR scanner. Please try again.');
-      return;
-    }
-  } catch (err) {
-    console.error('Error initializing scanner:', err);
-    alert('Error initializing QR scanner. Please try again.');
   }
 }
 
@@ -284,91 +243,6 @@ window.addEventListener('error', (event) => {
   if (event.message.includes('Permission denied')) {
     alert('Camera access is required to scan QR codes. Please grant permission.');
   }
-});
-  // Example QR content: https://domain/emergency/view/<id>
-  const match = text.match(/\/emergency\/view\/([A-Za-z0-9_-]+)/);
-  if (match) return match[1];
-  // Fallback: if the whole text is just the id
-  return text.trim();
-
-async function fetchProfile(emergencyId) {
-  const res = await fetch(`${BACKEND_BASE_URL}/api/emergency/${emergencyId}`);
-  if (!res.ok) throw new Error('Profile not found');
-  return res.json();
-}
-
-function renderCard(title, html) {
-  const card = document.createElement('div');
-  card.className = 'card';
-  if (title) card.innerHTML = `<h3>${title}</h3>`;
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  card.appendChild(div);
-  return card;
-}
-
-function renderProfile(data) {
-  profileContainer.innerHTML = '';
-  const { user, familyMembers = [], emergencyContacts = [] } = data;
-  // Patient basics
-  profileContainer.appendChild(
-    renderCard(
-      'Basic Info',
-      `<p><strong>Name:</strong> ${user.name || 'Unknown'}</p>
-       <p><strong>Blood Group:</strong> ${user.bloodGroup || '—'}</p>
-       <p><strong>Allergies:</strong> ${user.allergies?.join(', ') || 'None'}</p>
-       <p><strong>Conditions:</strong> ${user.medicalConditions?.join(', ') || 'None'}</p>`
-    )
-  );
-
-  if (familyMembers.length) {
-    const list = familyMembers.map(
-      m => `<li>${m.name} (${m.relationship})</li>`
-    ).join('');
-    profileContainer.appendChild(renderCard('Family Members', `<ul>${list}</ul>`));
-  }
-
-  if (emergencyContacts.length) {
-    const list = emergencyContacts.map(
-      c => `<li>${c.name}: <a href="tel:${c.phone}">${c.phone}</a></li>`
-    ).join('');
-    profileContainer.appendChild(renderCard('Emergency Contacts', `<ul>${list}</ul>`));
-  }
-}
-
-function startScanner() {
-  html5QrCode = new Html5Qrcode(qrRegionId);
-  const config = { fps: 10, qrbox: 250 };
-  html5QrCode.start(
-    { facingMode: 'environment' },
-    config,
-    async decodedText => {
-      try {
-        await html5QrCode.stop();
-      } catch (_) {}
-      scannerSection.classList.add('hidden');
-      profileSection.classList.remove('hidden');
-      profileContainer.innerHTML = '<p class="card">Fetching profile…</p>';
-      try {
-        const emergencyId = extractEmergencyId(decodedText);
-        const data = await fetchProfile(emergencyId);
-        renderProfile(data);
-      } catch (err) {
-        profileContainer.innerHTML = `<p class="error">${err.message}</p>`;
-      }
-    },
-    err => {
-      // console.log('QR scan error', err);
-    }
-  ).catch(err => {
-    document.getElementById(qrRegionId).innerHTML = `<p class="error">Camera error: ${err}</p>`;
-  });
-}
-
-scanAgainBtn.addEventListener('click', () => {
-  profileSection.classList.add('hidden');
-  scannerSection.classList.remove('hidden');
-  startScanner();
 });
 
 // Kick off

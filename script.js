@@ -169,8 +169,15 @@ async function fetchProfile(emergencyId) {
 
 function displayProfile(profile) {
   const { user, familyMembers = [], emergencyContacts = [] } = profile;
-  profileCard.innerHTML = `
-    <div class="profile-card">
+  const profileContainer = document.querySelector('.profile-container');
+  
+  if (!profileContainer) {
+    console.error('Profile container not found');
+    return;
+  }
+
+  profileContainer.innerHTML = `
+    <div id="profile-card" class="profile-card">
       <h3>${user.name || 'Unknown Patient'}</h3>
       <div class="profile-info">
         <p><strong>Blood Group:</strong> ${user.bloodGroup || '—'}</p>

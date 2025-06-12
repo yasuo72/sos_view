@@ -26,7 +26,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const checkLibrary = () => {
     if (typeof Html5Qrcode !== 'undefined') {
       console.log('Html5Qrcode library loaded successfully');
-      cameraAccessBtn.addEventListener('click', () => startScanner());
+      cameraAccessBtn.addEventListener('click', async () => {
+    // Request camera permissions first
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop());
+      startScanner();
+    } catch (permError) {
+      console.error('Camera permission error:', permError);
+      showError('Camera permission denied. Please allow camera access and refresh the page.');
+    }
+  });
       scanAgainBtn.addEventListener('click', () => {
         showScannerSection();
         cameraAccessBtn.textContent = 'Access Camera';
@@ -77,8 +87,12 @@ async function startScanner() {
     }
 
     if (html5QrCode) {
-      await html5QrCode.stop();
-      html5QrCode.clear();
+      try {
+        await html5QrCode.stop();
+        html5QrCode.clear();
+      } catch (stopError) {
+        console.log('Error stopping previous scanner:', stopError);
+      }
       html5QrCode = null;
     }
 
@@ -88,7 +102,7 @@ async function startScanner() {
       console.log('QR Code scanned:', decodedText);
       const emergencyId = extractEmergencyId(decodedText);
       if (emergencyId) {
-        html5QrCode.stop();
+        html5QrCode.stop().catch(console.error);
         showProfileSection();
         showLoading('Fetching emergency information...');
         fetchProfile(emergencyId);
@@ -107,22 +121,42 @@ async function startScanner() {
       aspectRatio: 1.0
     };
 
-    // Try environment camera first, fallback to any camera
-    try {
-      await html5QrCode.start(
-        { facingMode: "environment" }, 
-        config, 
-        qrCodeSuccessCallback,
-        qrCodeErrorCallback
-      );
-    } catch (envError) {
-      console.log('Environment camera not available, trying default camera');
-      await html5QrCode.start(
-        { facingMode: "user" }, 
-        config, 
-        qrCodeSuccessCallback,
-        qrCodeErrorCallback
-      );
+    // Get available cameras first
+    const cameras = await Html5Qrcode.getCameras();
+    if (cameras && cameras.length === 0) {
+      throw new Error('No cameras found on this device');
+    }
+
+    console.log('Available cameras:', cameras);
+
+    // Try different camera approaches
+    let cameraStarted = false;
+    const cameraOptions = [
+      { facingMode: "environment" },
+      { facingMode: "user" },
+      cameras?.[0]?.id ? cameras[0].id : null
+    ].filter(Boolean);
+
+    for (const cameraOption of cameraOptions) {
+      try {
+        console.log('Trying camera option:', cameraOption);
+        await html5QrCode.start(
+          cameraOption, 
+          config, 
+          qrCodeSuccessCallback,
+          qrCodeErrorCallback
+        );
+        cameraStarted = true;
+        console.log('Camera started successfully with option:', cameraOption);
+        break;
+      } catch (cameraError) {
+        console.log('Camera option failed:', cameraOption, cameraError);
+        continue;
+      }
+    }
+
+    if (!cameraStarted) {
+      throw new Error('Unable to start any camera');
     }
 
     cameraAccessBtn.textContent = 'Camera Active';
@@ -130,14 +164,37 @@ async function startScanner() {
 
   } catch (err) {
     console.error('Error starting scanner:', err);
-    showError('Unable to access camera. Please check camera permissions and try again.');
+    let errorMessage = 'Unable to access camera. ';
+    
+    if (err.message.includes('NotAllowedError') || err.message.includes('Permission')) {
+      errorMessage += 'Please allow camera permissions and try again.';
+    } else if (err.message.includes('NotFoundError') || err.message.includes('No cameras')) {
+      errorMessage += 'No camera found on this device.';
+    } else if (err.message.includes('NotReadableError')) {
+      errorMessage += 'Camera is being used by another application.';
+    } else {
+      errorMessage += 'Please check camera permissions and try again.';
+    }
+    
+    showError(errorMessage);
     cameraAccessBtn.textContent = 'Retry Camera Access';
     cameraAccessBtn.disabled = false;
   }
 }
 
 function extractEmergencyId(text) {
-  // Try to extract ID from URL format first
+  try {
+    // First, try to parse as JSON (matches your backend QR format)
+    const qrData = JSON.parse(text);
+    if (qrData.type === 'MEDICAL_PROFILE' && qrData.data && qrData.data.emergencyId) {
+      console.log('Found structured QR data:', qrData);
+      return qrData.data.emergencyId;
+    }
+  } catch (e) {
+    // Not JSON, try other formats
+  }
+
+  // Try to extract ID from URL format
   const urlMatch = text.match(/\/emergency\/view\/(.+)$/);
   if (urlMatch) {
     return urlMatch[1];

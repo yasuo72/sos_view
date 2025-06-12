@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MedAssist+ Emergency Viewer</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- html5-qrcode -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Emergency QR Scanner</h1>
+  </header>
+  <main>
+    <section id="scanner-section">
+      <div id="qr-reader" style="width: 320px"></div>
+      <p>Point the camera at the MedAssist+ QR code.</p>
+    </section>
+
+    <section id="profile-section" class="hidden">
+      <h2>Patient Information</h2>
+      <div id="profile-container"></div>
+      <button id="scan-again">Scan Another QR</button>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

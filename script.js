@@ -141,7 +141,7 @@ window.addEventListener('error', (event) => {
   if (match) return match[1];
   // Fallback: if the whole text is just the id
   return text.trim();
-}
+
 
 async function fetchProfile(emergencyId) {
   const res = await fetch(`${BACKEND_BASE_URL}/api/emergency/${emergencyId}`);

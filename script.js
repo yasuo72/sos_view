@@ -57,14 +57,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Request camera permission immediately
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    // Create a temporary video element to check if camera is accessible
-    const video = document.createElement('video');
-    video.srcObject = stream;
-    video.play();
-    // Clean up
-    video.srcObject = null;
-    stream.getTracks().forEach(track => track.stop());
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        facingMode: 'environment', 
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    });
+    
+    // Clean up after 1 second
+    setTimeout(() => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    }, 1000);
 
     // Initialize QR scanner
     html5QrCode = new Html5QrCode();

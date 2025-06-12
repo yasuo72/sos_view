@@ -1,11 +1,5 @@
-/* eslint-env browser */
-
-// ---------------- Config -----------------
-// Change this to your deployed backend base URL (no trailing slash)
 const BACKEND_BASE_URL = 'https://medassistbackend-production.up.railway.app';
-// -----------------------------------------
 
-// DOM Elements
 let qrRegionId = null;
 let profileSection = null;
 let profileCard = null;
@@ -14,8 +8,7 @@ let scannerSection = null;
 let cameraAccessBtn = null;
 let html5QrCode = null;
 
-// Initialize DOM elements
-function initializeDOMElements() {
+document.addEventListener('DOMContentLoaded', async () => {
   qrRegionId = document.getElementById('qr-reader');
   profileSection = document.getElementById('profile-section');
   profileCard = document.getElementById('profile-card');
@@ -24,152 +17,51 @@ function initializeDOMElements() {
   cameraAccessBtn = document.getElementById('camera-access-btn');
 
   if (!qrRegionId || !profileSection || !profileCard || !scanAgainBtn || !scannerSection || !cameraAccessBtn) {
-    console.error('One or more required DOM elements not found');
-    return false;
+    console.error('DOM elements not found');
+    return;
   }
-  return true;
-}
 
-// Show loading state
-function showLoading(message = 'Loading...') {
-  profileCard.innerHTML = `
-    <div class="loader">${message}</div>
-  `;
-}
-
-// Show error state
-function showError(message) {
-  profileCard.innerHTML = `
-    <div class="error">
-      <p>${message}</p>
-      <button onclick="window.location.reload()">Try Again</button>
-    </div>
-  `;
-}
-
-// Initialize QR scanner when page loads
-document.addEventListener('DOMContentLoaded', async () => {
-  try {
-    // Initialize DOM elements
-    if (!initializeDOMElements()) {
-      showError('Error initializing the viewer. Please refresh the page.');
-      return;
-    }
-
-    // Request camera permission immediately
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      video: { 
-        facingMode: 'environment', 
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      }
-    });
-    
-    // Clean up after 1 second
-    setTimeout(() => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    }, 1000);
-
-    // Initialize QR scanner
-    html5QrCode = new Html5QrCode();
-    
-    // Start scanner immediately
-    startScanner();
-  } catch (err) {
-    console.error('Camera permission error:', err);
-    if (err.name === 'NotAllowedError') {
-      showError('Camera access denied. Please grant camera permission in your browser settings.');
-    } else if (err.name === 'NotFoundError') {
-      showError('No camera found. Please connect a camera device.');
+  // Wait for Html5Qrcode library to load with fallback
+  let attempts = 0;
+  const checkLibrary = () => {
+    if (typeof Html5Qrcode !== 'undefined') {
+      console.log('Html5Qrcode library loaded successfully');
+      cameraAccessBtn.addEventListener('click', () => startScanner());
+      scanAgainBtn.addEventListener('click', () => {
+        showScannerSection();
+        cameraAccessBtn.textContent = 'Access Camera';
+        cameraAccessBtn.disabled = false;
+      });
     } else {
-      showError('Unable to access camera. Please try again.');
+      attempts++;
+      if (attempts < 50) { // Increased attempts
+        setTimeout(checkLibrary, 200);
+      } else if (attempts === 50) {
+        console.log('Trying fallback CDN...');
+        loadFallbackScript();
+        setTimeout(checkLibrary, 500);
+      } else {
+        console.error('Html5Qrcode library failed to load from all sources');
+        cameraAccessBtn.textContent = 'QR Library Error - Refresh Page';
+        cameraAccessBtn.disabled = true;
+      }
     }
-  }
+  };
+
+  const loadFallbackScript = () => {
+    const fallbackScript = document.createElement('script');
+    fallbackScript.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+    fallbackScript.onload = () => console.log('Fallback script loaded');
+    fallbackScript.onerror = () => console.error('Fallback script failed');
+    document.head.appendChild(fallbackScript);
+  };
+
+  checkLibrary();
 });
 
-// Initialize scan again button
-if (scanAgainBtn) {
-  scanAgainBtn.addEventListener('click', () => {
-    try {
-      showScannerSection();
-      startScanner();
-    } catch (err) {
-      console.error('Error restarting scanner:', err);
-      showError('Error restarting scanner. Please try again.');
-    }
-  });
-}
-
-function extractEmergencyId(text) {
-  // QR code format: emergency://<emergencyId>
-  const match = text.match(/^emergency:\/\/(.+)$/);
-  return match ? match[1] : null;
-}
-
-async function startScanner() {
-  try {
-    if (!qrRegionId) {
-      throw new Error('QR reader element not found');
-    }
-
-    // Clean up any existing scanner
-    if (html5QrCode) {
-      try {
-        await html5QrCode.stop();
-      } catch (e) {
-        console.error('Error stopping previous scanner:', e);
-      }
-    }
-
-    // Initialize new scanner
-    html5QrCode = new Html5Qrcode(qrRegionId);
-    
-    const config = {
-      fps: 10,
-      qrbox: { width: 250, height: 250 },
-      aspectRatio: 1,
-      qrboxStyle: {
-        borderColor: '#007991',
-        borderWidth: 2
-      },
-      scannerStyle: {
-        borderRadius: '12px',
-        border: '4px solid #007991'
-      }
-    };
-
-    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-      const emergencyId = extractEmergencyId(decodedText);
-      if (emergencyId) {
-        try {
-          showProfileSection();
-          showLoading('Fetching profile...');
-          fetchProfile(emergencyId);
-        } catch (err) {
-          console.error('Error after successful scan:', err);
-          showError('Error processing scan. Please try again.');
-        }
-      }
-    };
-
-    const qrCodeFailureCallback = (err) => {
-      console.error('QR code scan error:', err);
-      showError('Error scanning QR code. Please try again.');
-    };
-
-    // Start scanning
-    await html5QrCode.start({
-      facingMode: "environment"
-    }, config, qrCodeSuccessCallback, qrCodeFailureCallback);
-
-    // Update UI
-    showLoading('Scanner ready. Point your camera at the QR code.');
-  } catch (err) {
-    console.error('Error starting scanner:', err);
-    showError(`Error starting scanner: ${err.message}. Please try again.`);
-  }
+function showScannerSection() {
+  scannerSection.classList.remove('hidden');
+  profileSection.classList.add('hidden');
 }
 
 function showProfileSection() {
@@ -177,79 +69,117 @@ function showProfileSection() {
   profileSection.classList.remove('hidden');
 }
 
-function showScannerSection() {
-  scannerSection.classList.remove('hidden');
-  profileSection.classList.add('hidden');
+async function startScanner() {
+  try {
+    // Check if library is available
+    if (typeof Html5Qrcode === 'undefined') {
+      throw new Error('Html5Qrcode library not loaded');
+    }
+
+    if (html5QrCode) {
+      await html5QrCode.stop();
+      html5QrCode.clear();
+      html5QrCode = null;
+    }
+
+    html5QrCode = new Html5Qrcode("qr-reader");
+
+    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+      console.log('QR Code scanned:', decodedText);
+      const emergencyId = extractEmergencyId(decodedText);
+      if (emergencyId) {
+        html5QrCode.stop();
+        showProfileSection();
+        showLoading('Fetching emergency information...');
+        fetchProfile(emergencyId);
+      } else {
+        showError('Invalid QR code format. Please scan a valid MedAssist+ emergency QR code.');
+      }
+    };
+
+    const qrCodeErrorCallback = (error) => {
+      // Ignore frequent scanning errors
+    };
+
+    const config = { 
+      fps: 10, 
+      qrbox: { width: 250, height: 250 },
+      aspectRatio: 1.0
+    };
+
+    // Try environment camera first, fallback to any camera
+    try {
+      await html5QrCode.start(
+        { facingMode: "environment" }, 
+        config, 
+        qrCodeSuccessCallback,
+        qrCodeErrorCallback
+      );
+    } catch (envError) {
+      console.log('Environment camera not available, trying default camera');
+      await html5QrCode.start(
+        { facingMode: "user" }, 
+        config, 
+        qrCodeSuccessCallback,
+        qrCodeErrorCallback
+      );
+    }
+
+    cameraAccessBtn.textContent = 'Camera Active';
+    cameraAccessBtn.disabled = true;
+
+  } catch (err) {
+    console.error('Error starting scanner:', err);
+    showError('Unable to access camera. Please check camera permissions and try again.');
+    cameraAccessBtn.textContent = 'Retry Camera Access';
+    cameraAccessBtn.disabled = false;
+  }
+}
+
+function extractEmergencyId(text) {
+  const match = text.match(/^emergency:\/\/(.+)$/);
+  return match ? match[1] : null;
+}
+
+function showLoading(message = 'Loading...') {
+  profileCard.innerHTML = `<div class="loader">${message}</div>`;
+}
+
+function showError(message) {
+  profileCard.innerHTML = `<div class="error">${message}</div>`;
 }
 
 async function fetchProfile(emergencyId) {
   try {
-    const response = await fetch(`${BACKEND_BASE_URL}/api/emergency/${emergencyId}`);
-    if (!response.ok) {
-      throw new Error('Profile not found');
-    }
-    const data = await response.json();
+    const res = await fetch(`${BACKEND_BASE_URL}/api/emergency/${emergencyId}`);
+    if (!res.ok) throw new Error('Profile not found');
+    const data = await res.json();
     displayProfile(data);
   } catch (err) {
-    console.error('Error fetching profile:', err);
-    profileContainer.innerHTML = `
-      <div class="error">
-        <p>Error loading profile: ${err.message}</p>
-        <button onclick="showScannerSection(); startScanner();">Try Again</button>
-      </div>
-    `;
+    showError(`Error fetching profile: ${err.message}`);
   }
 }
 
 function displayProfile(profile) {
   const { user, familyMembers = [], emergencyContacts = [] } = profile;
-  
-  profileContainer.innerHTML = `
+  profileCard.innerHTML = `
     <div class="profile-card">
       <h3>${user.name || 'Unknown Patient'}</h3>
       <div class="profile-info">
         <p><strong>Blood Group:</strong> ${user.bloodGroup || '—'}</p>
-        <p><strong>Allergies:</strong> ${user.allergies && user.allergies.length ? user.allergies.join(', ') : 'None reported'}</p>
-        <p><strong>Conditions:</strong> ${user.medicalConditions && user.medicalConditions.length ? user.medicalConditions.join(', ') : 'None reported'}</p>
+        <p><strong>Allergies:</strong> ${user.allergies?.join(', ') || 'None reported'}</p>
+        <p><strong>Conditions:</strong> ${user.medicalConditions?.join(', ') || 'None reported'}</p>
       </div>
-      
       ${familyMembers.length > 0 ? `
         <div class="section">
           <h4>Family Members</h4>
-          <ul>
-            ${familyMembers.map(member => `
-              <li>${member.name} (${member.relationship})</li>
-            `).join('')}
-          </ul>
-        </div>
-      ` : ''}
-      
+          <ul>${familyMembers.map(m => `<li>${m.name} (${m.relationship})</li>`).join('')}</ul>
+        </div>` : ''}
       ${emergencyContacts.length > 0 ? `
         <div class="section">
           <h4>Emergency Contacts</h4>
-          <ul>
-            ${emergencyContacts.map(contact => `
-              <li>${contact.name}: <a href="tel:${contact.phone}">${contact.phone}</a></li>
-            `).join('')}
-          </ul>
-        </div>
-      ` : ''}
+          <ul>${emergencyContacts.map(c => `<li>${c.name}: <a href="tel:${c.phone}">${c.phone}</a></li>`).join('')}</ul>
+        </div>` : ''}
     </div>
   `;
 }
-
-// Event listener for scan again button
-scanAgainBtn.addEventListener('click', () => {
-  showScannerSection();
-  startScanner();
-});
-
-// Handle camera permission
-window.addEventListener('error', (event) => {
-  if (event.message.includes('Permission denied')) {
-    alert('Camera access is required to scan QR codes. Please grant permission.');
-  }
-});
-
-// Kick off
-startScanner();

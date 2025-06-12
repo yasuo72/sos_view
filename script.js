@@ -142,7 +142,7 @@ function extractEmergencyId(text) {
   if (urlMatch) {
     return urlMatch[1];
   }
-  
+
   // Fallback to original format
   const directMatch = text.match(/^emergency:\/\/(.+)$/);
   return directMatch ? directMatch[1] : null;
@@ -159,27 +159,27 @@ function showError(message) {
 async function fetchProfile(emergencyId) {
   try {
     console.log('Fetching profile for emergency ID:', emergencyId);
-    
+
     // Add cache busting parameter
     const url = `${BACKEND_BASE_URL}/api/emergency/${emergencyId}?nocache=${Date.now()}`;
     console.log('Fetching from URL:', url);
-    
+
     const res = await fetch(url);
     console.log('Response status:', res.status);
-    
+
     if (!res.ok) {
       console.error('Response not OK:', res.status, await res.text());
       throw new Error('Profile not found');
     }
-    
+
     const data = await res.json();
     console.log('Received profile data:', data);
-    
+
     if (!data || !data.user) {
       console.error('Invalid profile data received:', data);
       throw new Error('Invalid profile data');
     }
-    
+
     displayProfile(data);
   } catch (err) {
     console.error('Error in fetchProfile:', err);
@@ -188,21 +188,31 @@ async function fetchProfile(emergencyId) {
 }
 
 function displayProfile(profile) {
+  console.log('Full profile data:', JSON.stringify(profile, null, 2));
+  
   const { user, familyMembers = [], emergencyContacts = [] } = profile;
   const profileContainer = document.querySelector('.profile-container');
-  
+
   if (!profileContainer) {
     console.error('Profile container not found');
     return;
   }
 
+  // Handle nested user properties - check multiple possible data structures
+  const userData = user || profile; // Fallback to profile if user is not nested
+  const bloodGroup = userData.bloodGroup || userData.blood_group || userData.bloodType || '—';
+  const allergies = userData.allergies || userData.allergy || [];
+  const conditions = userData.medicalConditions || userData.medical_conditions || userData.conditions || [];
+  
+  console.log('Extracted data:', { bloodGroup, allergies, conditions });
+
   profileContainer.innerHTML = `
     <div id="profile-card" class="profile-card">
-      <h3>${user.name || 'Unknown Patient'}</h3>
+      <h3>${userData.name || userData.fullName || 'Unknown Patient'}</h3>
       <div class="profile-info">
-        <p><strong>Blood Group:</strong> ${user.bloodGroup || '—'}</p>
-        <p><strong>Allergies:</strong> ${user.allergies?.join(', ') || 'None reported'}</p>
-        <p><strong>Conditions:</strong> ${user.medicalConditions?.join(', ') || 'None reported'}</p>
+        <p><strong>Blood Group:</strong> ${bloodGroup}</p>
+        <p><strong>Allergies:</strong> ${Array.isArray(allergies) ? allergies.join(', ') : (allergies || 'None reported')}</p>
+        <p><strong>Conditions:</strong> ${Array.isArray(conditions) ? conditions.join(', ') : (conditions || 'None reported')}</p>
       </div>
       ${familyMembers.length > 0 ? `
         <div class="section">

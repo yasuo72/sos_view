@@ -137,8 +137,15 @@ async function startScanner() {
 }
 
 function extractEmergencyId(text) {
-  const match = text.match(/^emergency:\/\/(.+)$/);
-  return match ? match[1] : null;
+  // Try to extract ID from URL format first
+  const urlMatch = text.match(/\/emergency\/view\/(.+)$/);
+  if (urlMatch) {
+    return urlMatch[1];
+  }
+  
+  // Fallback to original format
+  const directMatch = text.match(/^emergency:\/\/(.+)$/);
+  return directMatch ? directMatch[1] : null;
 }
 
 function showLoading(message = 'Loading...') {

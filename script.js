@@ -5,12 +5,47 @@
 const BACKEND_BASE_URL = 'https://medassistbackend-production.up.railway.app';
 // -----------------------------------------
 
-const qrRegionId = 'qr-reader';
-const profileSection = document.getElementById('profile-section');
-const profileCard = document.getElementById('profile-card');
-const scanAgainBtn = document.getElementById('scan-again');
-const scannerSection = document.getElementById('scanner-section');
-let html5QrCode;
+// DOM Elements
+let qrRegionId = null;
+let profileSection = null;
+let profileCard = null;
+let scanAgainBtn = null;
+let scannerSection = null;
+let cameraAccessBtn = null;
+let html5QrCode = null;
+
+// Initialize DOM elements
+function initializeDOMElements() {
+  qrRegionId = document.getElementById('qr-reader');
+  profileSection = document.getElementById('profile-section');
+  profileCard = document.getElementById('profile-card');
+  scanAgainBtn = document.getElementById('scan-again');
+  scannerSection = document.getElementById('scanner-section');
+  cameraAccessBtn = document.getElementById('camera-access-btn');
+
+  if (!qrRegionId || !profileSection || !profileCard || !scanAgainBtn || !scannerSection || !cameraAccessBtn) {
+    console.error('One or more required DOM elements not found');
+    return false;
+  }
+  return true;
+}
+
+// Show loading state
+function showLoading(message = 'Loading...') {
+  profileCard.innerHTML = `
+    <div class="loader">${message}</div>
+  `;
+}
+
+// Show error state
+function showError(message) {
+  profileCard.innerHTML = `
+    <div class="error">
+      <p>${message}</p>
+      <button onclick="window.location.reload()">Try Again</button>
+    </div>
+  `;
+}
 
 // Initialize QR scanner when page loads
 document.addEventListener('DOMContentLoaded', () => {

@@ -15,7 +15,7 @@
   </header>
   <main>
     <section id="scanner-section">
-      <div id="qr-reader"></div>
+      <div id="qr-reader" class="qr-reader"></div>
       <div class="camera-controls">
         <button id="camera-access-btn" class="camera-button">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -28,12 +28,14 @@
           Access Camera
         </button>
       </div>
-      <p>Point your camera at the QR code to scan</p>
+      <p class="scanner-instructions">Point your camera at the QR code to scan</p>
     </section>
 
     <section id="profile-section" class="hidden">
       <div class="profile-container">
-        <div id="profile-card"></div>
+        <div id="profile-card" class="profile-card">
+          <div class="loader">Loading profile...</div>
+        </div>
       </div>
       <button id="scan-again" class="camera-button">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -46,6 +48,8 @@
       </button>
     </section>
   </main>
+
+  <script src="script.js" defer></script>
 
   <script src="script.js"></script>
 </body>

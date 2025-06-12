@@ -158,11 +158,31 @@ function showError(message) {
 
 async function fetchProfile(emergencyId) {
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/api/emergency/${emergencyId}`);
-    if (!res.ok) throw new Error('Profile not found');
+    console.log('Fetching profile for emergency ID:', emergencyId);
+    
+    // Add cache busting parameter
+    const url = `${BACKEND_BASE_URL}/api/emergency/${emergencyId}?nocache=${Date.now()}`;
+    console.log('Fetching from URL:', url);
+    
+    const res = await fetch(url);
+    console.log('Response status:', res.status);
+    
+    if (!res.ok) {
+      console.error('Response not OK:', res.status, await res.text());
+      throw new Error('Profile not found');
+    }
+    
     const data = await res.json();
+    console.log('Received profile data:', data);
+    
+    if (!data || !data.user) {
+      console.error('Invalid profile data received:', data);
+      throw new Error('Invalid profile data');
+    }
+    
     displayProfile(data);
   } catch (err) {
+    console.error('Error in fetchProfile:', err);
     showError(`Error fetching profile: ${err.message}`);
   }
 }

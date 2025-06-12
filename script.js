@@ -7,12 +7,135 @@ const BACKEND_BASE_URL = 'https://medassistbackend-production.up.railway.app';
 
 const qrRegionId = 'qr-reader';
 const profileSection = document.getElementById('profile-section');
-const profileContainer = document.getElementById('profile-container');
+const profileCard = document.getElementById('profile-card');
 const scanAgainBtn = document.getElementById('scan-again');
 const scannerSection = document.getElementById('scanner-section');
 let html5QrCode;
 
+// Initialize QR scanner when page loads
+window.addEventListener('load', () => {
+  startScanner();
+});
+
 function extractEmergencyId(text) {
+  // QR code format: emergency://<emergencyId>
+  const match = text.match(/^emergency:\/\/(.+)$/);
+  return match ? match[1] : null;
+}
+
+async function startScanner() {
+  try {
+    html5QrCode = new Html5Qrcode(qrRegionId);
+    
+    const config = {
+      fps: 10,
+      qrbox: { width: 250, height: 250 },
+      aspectRatio: 1
+    };
+
+    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+      const emergencyId = extractEmergencyId(decodedText);
+      if (emergencyId) {
+        html5QrCode.stop().then(() => {
+          showProfileSection();
+          fetchProfile(emergencyId);
+        }).catch((err) => {
+          console.error('Error stopping scanner:', err);
+        });
+      }
+    };
+
+    const qrCodeFailureCallback = (err) => {
+      console.error('QR code scan error:', err);
+    };
+
+    await html5QrCode.start({
+      facingMode: "environment" // Use back camera
+    }, config, qrCodeSuccessCallback, qrCodeFailureCallback);
+  } catch (err) {
+    console.error('Error initializing scanner:', err);
+    alert('Error initializing QR scanner. Please try again.');
+  }
+}
+
+function showProfileSection() {
+  scannerSection.classList.add('hidden');
+  profileSection.classList.remove('hidden');
+}
+
+function showScannerSection() {
+  scannerSection.classList.remove('hidden');
+  profileSection.classList.add('hidden');
+}
+
+async function fetchProfile(emergencyId) {
+  try {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/emergency/${emergencyId}`);
+    if (!response.ok) {
+      throw new Error('Profile not found');
+    }
+    const data = await response.json();
+    displayProfile(data);
+  } catch (err) {
+    console.error('Error fetching profile:', err);
+    profileContainer.innerHTML = `
+      <div class="error">
+        <p>Error loading profile: ${err.message}</p>
+        <button onclick="showScannerSection(); startScanner();">Try Again</button>
+      </div>
+    `;
+  }
+}
+
+function displayProfile(profile) {
+  const { user, familyMembers = [], emergencyContacts = [] } = profile;
+  
+  profileContainer.innerHTML = `
+    <div class="profile-card">
+      <h3>${user.name || 'Unknown Patient'}</h3>
+      <div class="profile-info">
+        <p><strong>Blood Group:</strong> ${user.bloodGroup || '—'}</p>
+        <p><strong>Allergies:</strong> ${user.allergies && user.allergies.length ? user.allergies.join(', ') : 'None reported'}</p>
+        <p><strong>Conditions:</strong> ${user.medicalConditions && user.medicalConditions.length ? user.medicalConditions.join(', ') : 'None reported'}</p>
+      </div>
+      
+      ${familyMembers.length > 0 ? `
+        <div class="section">
+          <h4>Family Members</h4>
+          <ul>
+            ${familyMembers.map(member => `
+              <li>${member.name} (${member.relationship})</li>
+            `).join('')}
+          </ul>
+        </div>
+      ` : ''}
+      
+      ${emergencyContacts.length > 0 ? `
+        <div class="section">
+          <h4>Emergency Contacts</h4>
+          <ul>
+            ${emergencyContacts.map(contact => `
+              <li>${contact.name}: <a href="tel:${contact.phone}">${contact.phone}</a></li>
+            `).join('')}
+          </ul>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+// Event listener for scan again button
+scanAgainBtn.addEventListener('click', () => {
+  showScannerSection();
+  startScanner();
+});
+
+// Handle camera permission
+window.addEventListener('error', (event) => {
+  if (event.message.includes('Permission denied')) {
+    alert('Camera access is required to scan QR codes. Please grant permission.');
+  }
+});
   // Example QR content: https://domain/emergency/view/<id>
   const match = text.match(/\/emergency\/view\/([A-Za-z0-9_-]+)/);
   if (match) return match[1];

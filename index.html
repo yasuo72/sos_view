@@ -10,17 +10,19 @@
 </head>
 <body>
   <header>
-    <h1>Emergency QR Scanner</h1>
+    <h1>MedAssist+ Emergency Viewer</h1>
+    <p>Scan your MedAssist+ QR code to view emergency information</p>
   </header>
   <main>
     <section id="scanner-section">
-      <div id="qr-reader" style="width: 320px"></div>
-      <p>Point the camera at the MedAssist+ QR code.</p>
+      <div id="qr-reader"></div>
+      <p>Point your camera at the QR code to scan</p>
     </section>
 
     <section id="profile-section" class="hidden">
-      <h2>Patient Information</h2>
-      <div id="profile-container"></div>
+      <div class="profile-container">
+        <div id="profile-card"></div>
+      </div>
       <button id="scan-again">Scan Another QR</button>
     </section>
   </main>

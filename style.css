@@ -58,8 +58,22 @@ body {
   }
   
   .error {
-    color: red;
+    color: #d32f2f;
     padding: 1rem;
+    background: #ffebee;
+    border: 1px solid #f8bbd9;
+    border-radius: 6px;
+    margin: 1rem 0;
+  }
+  
+  .debug-section {
+    margin-top: 1rem !important;
+    padding: 0.5rem !important;
+    background: #f5f5f5 !important;
+    border-radius: 4px !important;
+    font-size: 0.8rem !important;
+    color: #666 !important;
+    border-left: 3px solid #007991 !important;
   }
   
   .hidden {

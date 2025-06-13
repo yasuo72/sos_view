@@ -183,26 +183,49 @@ async function startScanner() {
 }
 
 function extractEmergencyId(text) {
+  console.log('Attempting to extract emergency ID from:', text);
+  
   try {
     // First, try to parse as JSON (matches your backend QR format)
     const qrData = JSON.parse(text);
+    console.log('Parsed QR data:', qrData);
+    
     if (qrData.type === 'MEDICAL_PROFILE' && qrData.data && qrData.data.emergencyId) {
-      console.log('Found structured QR data:', qrData);
+      console.log('Found structured QR data with emergency ID:', qrData.data.emergencyId);
       return qrData.data.emergencyId;
     }
+    
+    // Also check if emergencyId is at root level
+    if (qrData.emergencyId) {
+      console.log('Found emergency ID at root level:', qrData.emergencyId);
+      return qrData.emergencyId;
+    }
   } catch (e) {
-    // Not JSON, try other formats
+    console.log('Not JSON format, trying other patterns');
   }
 
-  // Try to extract ID from URL format
-  const urlMatch = text.match(/\/emergency\/view\/(.+)$/);
+  // Try to extract ID from URL format (from emergencyUrl in QR)
+  const urlMatch = text.match(/\/emergency\/view\/([^?&#]+)/);
   if (urlMatch) {
+    console.log('Found emergency ID from URL:', urlMatch[1]);
     return urlMatch[1];
   }
 
-  // Fallback to original format
+  // Try direct emergency:// format
   const directMatch = text.match(/^emergency:\/\/(.+)$/);
-  return directMatch ? directMatch[1] : null;
+  if (directMatch) {
+    console.log('Found emergency ID from direct format:', directMatch[1]);
+    return directMatch[1];
+  }
+
+  // Try if the text itself is just the ID
+  if (text && text.length > 10 && text.length < 100 && !text.includes(' ')) {
+    console.log('Treating text as direct emergency ID:', text);
+    return text;
+  }
+
+  console.log('No emergency ID found in QR code');
+  return null;
 }
 
 function showLoading(message = 'Loading...') {
@@ -217,30 +240,66 @@ async function fetchProfile(emergencyId) {
   try {
     console.log('Fetching profile for emergency ID:', emergencyId);
 
-    // Add cache busting parameter
-    const url = `${BACKEND_BASE_URL}/api/emergency/${emergencyId}?nocache=${Date.now()}`;
-    console.log('Fetching from URL:', url);
+    // Try different possible endpoints
+    const endpoints = [
+      `/api/emergency/${emergencyId}`,
+      `/api/users/emergency/${emergencyId}`,
+      `/api/qr/emergency/${emergencyId}`,
+      `/api/emergency/profile/${emergencyId}`
+    ];
 
-    const res = await fetch(url);
-    console.log('Response status:', res.status);
+    let data = null;
+    let lastError = null;
 
-    if (!res.ok) {
-      console.error('Response not OK:', res.status, await res.text());
-      throw new Error('Profile not found');
+    for (const endpoint of endpoints) {
+      try {
+        const url = `${BACKEND_BASE_URL}${endpoint}?nocache=${Date.now()}`;
+        console.log('Trying endpoint:', url);
+
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+
+        console.log(`Response from ${endpoint}:`, res.status);
+
+        if (res.ok) {
+          data = await res.json();
+          console.log('Success! Received data from:', endpoint, data);
+          break;
+        } else {
+          const errorText = await res.text();
+          console.log(`${endpoint} failed:`, res.status, errorText);
+          lastError = `${endpoint}: ${res.status} ${errorText}`;
+        }
+      } catch (fetchErr) {
+        console.log(`${endpoint} error:`, fetchErr);
+        lastError = `${endpoint}: ${fetchErr.message}`;
+        continue;
+      }
     }
 
-    const data = await res.json();
-    console.log('Received profile data:', data);
-
-    if (!data || !data.user) {
-      console.error('Invalid profile data received:', data);
-      throw new Error('Invalid profile data');
+    if (!data) {
+      throw new Error(`All endpoints failed. Last error: ${lastError}`);
     }
 
-    displayProfile(data);
+    // Handle different possible data structures
+    if (data.user) {
+      displayProfile(data);
+    } else if (data.emergencyId || data.bloodGroup || data.name) {
+      // Data might be directly the user object
+      displayProfile({ user: data });
+    } else {
+      console.error('Unexpected data structure:', data);
+      throw new Error('Invalid profile data structure');
+    }
+
   } catch (err) {
     console.error('Error in fetchProfile:', err);
-    showError(`Error fetching profile: ${err.message}`);
+    showError(`Error fetching profile: ${err.message}. Check console for details.`);
   }
 }
 
@@ -258,29 +317,42 @@ function displayProfile(profile) {
   // Handle nested user properties - check multiple possible data structures
   const userData = user || profile; // Fallback to profile if user is not nested
   const bloodGroup = userData.bloodGroup || userData.blood_group || userData.bloodType || '—';
-  const allergies = userData.allergies || userData.allergy || [];
+  const allergies = userData.allergies || userData.allergy || userData.currentMedications || [];
   const conditions = userData.medicalConditions || userData.medical_conditions || userData.conditions || [];
+  const medications = userData.currentMedications || userData.medications || [];
+  const emergencyContactsList = emergencyContacts.length > 0 ? emergencyContacts : (userData.emergencyContacts || []);
   
-  console.log('Extracted data:', { bloodGroup, allergies, conditions });
+  console.log('Extracted data:', { 
+    name: userData.name || userData.fullName,
+    bloodGroup, 
+    allergies, 
+    conditions, 
+    medications,
+    emergencyContacts: emergencyContactsList
+  });
 
   profileContainer.innerHTML = `
     <div id="profile-card" class="profile-card">
-      <h3>${userData.name || userData.fullName || 'Unknown Patient'}</h3>
+      <h3>${userData.name || userData.fullName || 'Emergency Contact'}</h3>
       <div class="profile-info">
         <p><strong>Blood Group:</strong> ${bloodGroup}</p>
         <p><strong>Allergies:</strong> ${Array.isArray(allergies) ? allergies.join(', ') : (allergies || 'None reported')}</p>
-        <p><strong>Conditions:</strong> ${Array.isArray(conditions) ? conditions.join(', ') : (conditions || 'None reported')}</p>
+        <p><strong>Medical Conditions:</strong> ${Array.isArray(conditions) ? conditions.join(', ') : (conditions || 'None reported')}</p>
+        ${medications.length > 0 ? `<p><strong>Current Medications:</strong> ${Array.isArray(medications) ? medications.join(', ') : medications}</p>` : ''}
       </div>
       ${familyMembers.length > 0 ? `
         <div class="section">
           <h4>Family Members</h4>
           <ul>${familyMembers.map(m => `<li>${m.name} (${m.relationship})</li>`).join('')}</ul>
         </div>` : ''}
-      ${emergencyContacts.length > 0 ? `
+      ${emergencyContactsList.length > 0 ? `
         <div class="section">
           <h4>Emergency Contacts</h4>
-          <ul>${emergencyContacts.map(c => `<li>${c.name}: <a href="tel:${c.phone}">${c.phone}</a></li>`).join('')}</ul>
+          <ul>${emergencyContactsList.map(c => `<li>${c.name}: <a href="tel:${c.phone}">${c.phone}</a></li>`).join('')}</ul>
         </div>` : ''}
+      <div class="debug-section" style="margin-top: 1rem; padding: 0.5rem; background: #f0f0f0; border-radius: 4px; font-size: 0.8rem;">
+        <strong>Debug Info:</strong> Emergency ID: ${userData.emergencyId || 'Not found'}
+      </div>
     </div>
   `;
 }

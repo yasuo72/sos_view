@@ -245,10 +245,13 @@ async function fetchProfile(emergencyId) {
       `/api/emergency/${emergencyId}`,
       `/api/users/emergency/${emergencyId}`,
       `/api/qr/emergency/${emergencyId}`,
-      `/api/emergency/profile/${emergencyId}`
+      `/api/emergency/profile/${emergencyId}`,
+      `/api/users/${emergencyId}`,
+      `/emergency/${emergencyId}`
     ];
 
     let data = null;
+    let successEndpoint = null;
     let lastError = null;
 
     for (const endpoint of endpoints) {
@@ -267,9 +270,19 @@ async function fetchProfile(emergencyId) {
         console.log(`Response from ${endpoint}:`, res.status);
 
         if (res.ok) {
-          data = await res.json();
-          console.log('Success! Received data from:', endpoint, data);
-          break;
+          const responseText = await res.text();
+          console.log('Raw response:', responseText);
+          
+          try {
+            data = JSON.parse(responseText);
+            successEndpoint = endpoint;
+            console.log('Success! Received data from:', endpoint, data);
+            break;
+          } catch (parseErr) {
+            console.log('JSON parse error:', parseErr);
+            lastError = `${endpoint}: Invalid JSON response`;
+            continue;
+          }
         } else {
           const errorText = await res.text();
           console.log(`${endpoint} failed:`, res.status, errorText);
@@ -283,23 +296,42 @@ async function fetchProfile(emergencyId) {
     }
 
     if (!data) {
-      throw new Error(`All endpoints failed. Last error: ${lastError}`);
+      showError(`Could not fetch profile data. Emergency ID: ${emergencyId}. Last error: ${lastError}`);
+      return;
     }
 
+    console.log('Full API response:', JSON.stringify(data, null, 2));
+
     // Handle different possible data structures
-    if (data.user) {
-      displayProfile(data);
-    } else if (data.emergencyId || data.bloodGroup || data.name) {
-      // Data might be directly the user object
-      displayProfile({ user: data });
-    } else {
-      console.error('Unexpected data structure:', data);
-      throw new Error('Invalid profile data structure');
+    if (data.success === false || data.error) {
+      throw new Error(data.message || data.error || 'API returned error');
     }
+
+    // Try to find user data in different structures
+    let userData = null;
+    if (data.user) {
+      userData = data.user;
+    } else if (data.data && data.data.user) {
+      userData = data.data.user;
+    } else if (data.profile) {
+      userData = data.profile;
+    } else if (data.name || data.bloodGroup || data.emergencyId) {
+      userData = data;
+    } else if (Array.isArray(data) && data.length > 0) {
+      userData = data[0];
+    }
+
+    if (!userData) {
+      console.error('Could not extract user data from response:', data);
+      showError(`Profile data found but in unexpected format. Using endpoint: ${successEndpoint}`);
+      return;
+    }
+
+    displayProfile({ user: userData, ...data });
 
   } catch (err) {
     console.error('Error in fetchProfile:', err);
-    showError(`Error fetching profile: ${err.message}. Check console for details.`);
+    showError(`Error fetching profile: ${err.message}`);
   }
 }
 
@@ -316,29 +348,55 @@ function displayProfile(profile) {
 
   // Handle nested user properties - check multiple possible data structures
   const userData = user || profile; // Fallback to profile if user is not nested
-  const bloodGroup = userData.bloodGroup || userData.blood_group || userData.bloodType || '—';
-  const allergies = userData.allergies || userData.allergy || userData.currentMedications || [];
-  const conditions = userData.medicalConditions || userData.medical_conditions || userData.conditions || [];
-  const medications = userData.currentMedications || userData.medications || [];
-  const emergencyContactsList = emergencyContacts.length > 0 ? emergencyContacts : (userData.emergencyContacts || []);
+  
+  // More comprehensive field mapping
+  const name = userData.name || userData.fullName || userData.firstName || userData.username || 'Emergency Contact';
+  const bloodGroup = userData.bloodGroup || userData.blood_group || userData.bloodType || userData.blood || '—';
+  
+  // Handle allergies in different formats
+  let allergies = userData.allergies || userData.allergy || userData.allergiesList || [];
+  if (typeof allergies === 'string') {
+    allergies = allergies.split(',').map(a => a.trim()).filter(a => a);
+  }
+  
+  // Handle medical conditions
+  let conditions = userData.medicalConditions || userData.medical_conditions || userData.conditions || userData.medicalHistory || [];
+  if (typeof conditions === 'string') {
+    conditions = conditions.split(',').map(c => c.trim()).filter(c => c);
+  }
+  
+  // Handle medications
+  let medications = userData.currentMedications || userData.medications || userData.drugs || [];
+  if (typeof medications === 'string') {
+    medications = medications.split(',').map(m => m.trim()).filter(m => m);
+  }
+  
+  // Handle emergency contacts
+  const emergencyContactsList = emergencyContacts.length > 0 ? emergencyContacts : (userData.emergencyContacts || userData.contacts || []);
+  
+  // Additional fields that might be useful
+  const age = userData.age || userData.dateOfBirth || '';
+  const phone = userData.phone || userData.phoneNumber || userData.mobile || '';
+  const email = userData.email || userData.emailAddress || '';
   
   console.log('Extracted data:', { 
-    name: userData.name || userData.fullName,
-    bloodGroup, 
-    allergies, 
-    conditions, 
-    medications,
-    emergencyContacts: emergencyContactsList
+    name, bloodGroup, allergies, conditions, medications, emergencyContacts: emergencyContactsList, age, phone, email
   });
+
+  // Show all available data for debugging
+  const allFields = Object.keys(userData).map(key => `${key}: ${JSON.stringify(userData[key])}`).join('<br>');
 
   profileContainer.innerHTML = `
     <div id="profile-card" class="profile-card">
-      <h3>${userData.name || userData.fullName || 'Emergency Contact'}</h3>
+      <h3>${name}</h3>
       <div class="profile-info">
+        ${age ? `<p><strong>Age:</strong> ${age}</p>` : ''}
+        ${phone ? `<p><strong>Phone:</strong> <a href="tel:${phone}">${phone}</a></p>` : ''}
+        ${email ? `<p><strong>Email:</strong> ${email}</p>` : ''}
         <p><strong>Blood Group:</strong> ${bloodGroup}</p>
-        <p><strong>Allergies:</strong> ${Array.isArray(allergies) ? allergies.join(', ') : (allergies || 'None reported')}</p>
-        <p><strong>Medical Conditions:</strong> ${Array.isArray(conditions) ? conditions.join(', ') : (conditions || 'None reported')}</p>
-        ${medications.length > 0 ? `<p><strong>Current Medications:</strong> ${Array.isArray(medications) ? medications.join(', ') : medications}</p>` : ''}
+        <p><strong>Allergies:</strong> ${Array.isArray(allergies) && allergies.length > 0 ? allergies.join(', ') : (allergies || 'None reported')}</p>
+        <p><strong>Medical Conditions:</strong> ${Array.isArray(conditions) && conditions.length > 0 ? conditions.join(', ') : (conditions || 'None reported')}</p>
+        ${Array.isArray(medications) && medications.length > 0 ? `<p><strong>Current Medications:</strong> ${medications.join(', ')}</p>` : ''}
       </div>
       ${familyMembers.length > 0 ? `
         <div class="section">
@@ -350,8 +408,15 @@ function displayProfile(profile) {
           <h4>Emergency Contacts</h4>
           <ul>${emergencyContactsList.map(c => `<li>${c.name}: <a href="tel:${c.phone}">${c.phone}</a></li>`).join('')}</ul>
         </div>` : ''}
-      <div class="debug-section" style="margin-top: 1rem; padding: 0.5rem; background: #f0f0f0; border-radius: 4px; font-size: 0.8rem;">
-        <strong>Debug Info:</strong> Emergency ID: ${userData.emergencyId || 'Not found'}
+      <div class="debug-section">
+        <strong>Debug Info:</strong><br>
+        Emergency ID: ${userData.emergencyId || userData.id || 'Not found'}<br>
+        <details>
+          <summary>All Available Fields</summary>
+          <div style="font-size: 0.7rem; margin-top: 0.5rem; max-height: 200px; overflow-y: auto;">
+            ${allFields}
+          </div>
+        </details>
       </div>
     </div>
   `;

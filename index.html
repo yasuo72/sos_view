@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,49 +8,132 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="https://unpkg.com/tabler-icons@latest/iconfont/tabler-icons.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
-  <header class="animate__animated animate__fadeInDown">
-    <h1><i class="ti ti-heart-rate"></i> MedAssist+ Emergency Viewer</h1>
-    <p>Scan your MedAssist+ QR code to view emergency information</p>
-  </header>
-  <svg class="wave" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 80"><path fill="#ffffff" fill-opacity="1" d="M0,32L48,42.7C96,53,192,75,288,80C384,85,480,75,576,64C672,53,768,43,864,37.3C960,32,1056,32,1152,42.7C1248,53,1344,75,1392,85.3L1440,96L1440,0L1392,0C1344,0,1248,0,1152,0C1056,0,960,0,864,0C768,0,672,0,576,0C480,0,384,0,288,0C192,0,96,0,48,0L0,0Z"></path></svg>
-  <main>
-    <section id="scanner-section">
-      <div id="qr-reader" class="qr-reader"></div>
-      <div class="camera-controls">
-        <button id="camera-access-btn" class="camera-button">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M15 12c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3z"></path>
-            <path d="M12 12l-9 9"></path>
-            <path d="M12 12l9 9"></path>
-            <path d="M12 12l9-9"></path>
-            <path d="M12 12l-9-9"></path>
-          </svg>
-          Access Camera
-        </button>
-      </div>
-      <p class="scanner-instructions">Point your camera at the QR code to scan</p>
-    </section>
+  <!-- Animated Background -->
+  <div class="bg-animation">
+    <div class="pulse-ring pulse-ring-1"></div>
+    <div class="pulse-ring pulse-ring-2"></div>
+    <div class="pulse-ring pulse-ring-3"></div>
+  </div>
 
-    <section id="profile-section" class="hidden">
-      <div class="profile-container">
-        <div id="profile-card" class="profile-card">
-          <div class="loader">Loading profile...</div>
+  <!-- Main Container -->
+  <div class="app-container">
+    <header class="animate__animated animate__fadeInDown">
+      <div class="header-content">
+        <div class="logo-section">
+          <div class="logo-icon">
+            <i class="ti ti-heart-rate-monitor"></i>
+            <div class="heartbeat-line"></div>
+          </div>
+          <div class="title-group">
+            <h1>MedAssist<span class="highlight">+</span></h1>
+            <span class="subtitle">Emergency Medical Viewer</span>
+          </div>
+        </div>
+        <div class="status-indicator">
+          <div class="status-dot"></div>
+          <span>System Active</span>
         </div>
       </div>
-      <button id="scan-again" class="camera-button">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 12a6 6 0 0 0-6-6"></path>
-          <path d="M12 18a6 6 0 0 0 6-6"></path>
-          <path d="M12 6a6 6 0 0 0-6 6"></path>
-          <path d="M6 12a6 6 0 0 0 6 6"></path>
-        </svg>
-        Scan Another QR
-      </button>
-    </section>
-  </main>
+      <p class="description">Scan your MedAssist+ QR code to access critical emergency information</p>
+    </header>
+
+    <main class="main-content">
+      <!-- Scanner Section -->
+      <section id="scanner-section" class="scanner-section">
+        <div class="scanner-container">
+          <div class="scanner-header">
+            <i class="ti ti-scan"></i>
+            <h2>Emergency QR Scanner</h2>
+          </div>
+          
+          <div class="scanner-frame">
+            <div id="qr-reader" class="qr-reader"></div>
+            <div class="scanner-overlay">
+              <div class="scan-line"></div>
+              <div class="corner corner-tl"></div>
+              <div class="corner corner-tr"></div>
+              <div class="corner corner-bl"></div>
+              <div class="corner corner-br"></div>
+            </div>
+          </div>
+
+          <div class="camera-controls">
+            <button id="camera-access-btn" class="primary-button">
+              <div class="button-icon">
+                <i class="ti ti-camera"></i>
+              </div>
+              <span>Activate Scanner</span>
+              <div class="button-ripple"></div>
+            </button>
+          </div>
+          
+          <div class="scanner-info">
+            <div class="info-item">
+              <i class="ti ti-shield-check"></i>
+              <span>Secure & Encrypted</span>
+            </div>
+            <div class="info-item">
+              <i class="ti ti-clock"></i>
+              <span>Real-time Processing</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Profile Section -->
+      <section id="profile-section" class="profile-section hidden">
+        <div class="profile-container">
+          <div class="profile-header">
+            <i class="ti ti-user-heart"></i>
+            <h2>Emergency Profile</h2>
+          </div>
+          <div id="profile-card" class="profile-card">
+            <div class="loader">
+              <div class="medical-cross">
+                <div class="cross-horizontal"></div>
+                <div class="cross-vertical"></div>
+              </div>
+              <span>Retrieving medical data...</span>
+            </div>
+          </div>
+          <button id="scan-again" class="secondary-button">
+            <div class="button-icon">
+              <i class="ti ti-refresh"></i>
+            </div>
+            <span>Scan Another QR</span>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-content">
+        <span>© 2024 MedAssist+</span>
+        <div class="footer-links">
+          <a href="#"><i class="ti ti-shield-lock"></i> Privacy</a>
+          <a href="#"><i class="ti ti-help-circle"></i> Support</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Floating Action Buttons -->
+  <div class="fab-container">
+    <button class="fab" title="Emergency Call">
+      <i class="ti ti-phone"></i>
+    </button>
+    <button class="fab" title="Settings">
+      <i class="ti ti-settings"></i>
+    </button>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>

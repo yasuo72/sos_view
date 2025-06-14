@@ -134,21 +134,20 @@ async function startScanner() {
       // Ignore frequent scanning errors
     };
 
-    // Optimised scanner configuration for faster & more precise detection
+    // Scanner configuration tuned for low-resolution (≤480p) cameras
     const config = {
-      fps: 25, // higher frame rate for quicker detection
-      qrbox: 250, // simpler box specification, auto–centred
-      aspectRatio: 1.0,
+      fps: 12,                       // lighter on CPU, still responsive (~80 ms/frame)
+      qrbox: (vw, vh) => Math.min(vw, vh) * 0.9, // give decoder ~full frame
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+      halfSample: true,              // subsample image for speed
+      disableFlip: true,             // rear cam – no mirror transform
       rememberLastUsedCamera: true,
-      experimentalFeatures: {
-        // Use native BarcodeDetector API in modern browsers (significant speed boost)
-        useBarCodeDetectorIfSupported: true
-      },
-      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE], // limit to QR only for efficiency
+      experimentalFeatures: { useBarCodeDetectorIfSupported: true },
       videoConstraints: {
-        facingMode: { ideal: "environment" },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
+        facingMode: { ideal: 'environment' },
+        width: 640,                 // request 640×480 stream
+        height: 480,
+        advanced: [{ focusMode: 'continuous' }]
       }
     };
 

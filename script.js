@@ -20,6 +20,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   uploadBtn = document.getElementById('upload-btn');
   fileInput = document.getElementById('file-input');
 
+  // Attach upload events once
+  if (uploadBtn && fileInput) {
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        showProfileSection();
+        showLoading('Scanning image...');
+        scanImageFile(file);
+        e.target.value = '';
+      }
+    });
+  }
+
   if (!qrRegionId || !profileSection || !profileCard || !scanAgainBtn || !scannerSection || !cameraAccessBtn) {
     console.error('DOM elements not found');
     return;
@@ -46,19 +60,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         cameraAccessBtn.textContent = 'Access Camera';
         cameraAccessBtn.disabled = false;
 
-        // Upload image QR code
-        if (uploadBtn && fileInput) {
-          uploadBtn.addEventListener('click', () => fileInput.click());
-          fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-              showProfileSection();
-              showLoading('Scanning image...');
-              scanImageFile(file);
-              e.target.value = '';
-            }
-          });
-        }
       });
     } else {
       attempts++;

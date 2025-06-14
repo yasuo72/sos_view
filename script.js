@@ -7,6 +7,8 @@ let scanAgainBtn = null;
 let scannerSection = null;
 let cameraAccessBtn = null;
 let html5QrCode = null;
+let uploadBtn = null;
+let fileInput = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   qrRegionId = document.getElementById('qr-reader');
@@ -15,6 +17,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   scanAgainBtn = document.getElementById('scan-again');
   scannerSection = document.getElementById('scanner-section');
   cameraAccessBtn = document.getElementById('camera-access-btn');
+  uploadBtn = document.getElementById('upload-btn');
+  fileInput = document.getElementById('file-input');
 
   if (!qrRegionId || !profileSection || !profileCard || !scanAgainBtn || !scannerSection || !cameraAccessBtn) {
     console.error('DOM elements not found');
@@ -41,6 +45,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         showScannerSection();
         cameraAccessBtn.textContent = 'Access Camera';
         cameraAccessBtn.disabled = false;
+
+        // Upload image QR code
+        if (uploadBtn && fileInput) {
+          uploadBtn.addEventListener('click', () => fileInput.click());
+          fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+              showProfileSection();
+              showLoading('Scanning image...');
+              scanImageFile(file);
+              e.target.value = '';
+            }
+          });
+        }
       });
     } else {
       attempts++;
@@ -115,10 +133,22 @@ async function startScanner() {
       // Ignore frequent scanning errors
     };
 
-    const config = { 
-      fps: 10, 
-      qrbox: { width: 250, height: 250 },
-      aspectRatio: 1.0
+    // Optimised scanner configuration for faster & more precise detection
+    const config = {
+      fps: 25, // higher frame rate for quicker detection
+      qrbox: 250, // simpler box specification, auto–centred
+      aspectRatio: 1.0,
+      rememberLastUsedCamera: true,
+      experimentalFeatures: {
+        // Use native BarcodeDetector API in modern browsers (significant speed boost)
+        useBarCodeDetectorIfSupported: true
+      },
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE], // limit to QR only for efficiency
+      videoConstraints: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
     };
 
     // Get available cameras first
@@ -420,4 +450,26 @@ function displayProfile(profile) {
       </div>
     </div>
   `;
+}
+
+// === Image Upload QR Scanning ===
+async function scanImageFile(file) {
+  try {
+    const qr = new Html5Qrcode("qr-reader");
+    const decodedText = await qr.scanFile(file, false);
+    console.log('Decoded from image:', decodedText);
+
+    const emergencyId = extractEmergencyId(decodedText);
+    if (emergencyId) {
+      showLoading('Fetching emergency information...');
+      fetchProfile(emergencyId);
+      return;
+    }
+
+    // Could extend to other QR formats (e.g., email|token) here
+    showError('Invalid or unsupported QR code in image.');
+  } catch (err) {
+    console.error('scanImageFile error:', err);
+    showError('Unable to decode QR code from image.');
+  }
 }

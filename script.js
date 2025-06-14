@@ -136,7 +136,7 @@ async function startScanner() {
 
     // Scanner configuration tuned for low-resolution (≤480p) cameras
     const config = {
-      fps: 12,                       // lighter on CPU, still responsive (~80 ms/frame)
+      fps: 60,                       // lighter on CPU, still responsive (~80 ms/frame)
       qrbox: (vw, vh) => Math.min(vw, vh) * 0.9, // give decoder ~full frame
       formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
       halfSample: true,              // subsample image for speed

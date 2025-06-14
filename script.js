@@ -11,6 +11,16 @@ let uploadBtn = null;
 let fileInput = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Auto-detect emergencyId from URL (e.g., /emergency/view/<id>)
+  const pathMatch = window.location.pathname.match(/(?:emergency\/view|view)\/(.+)$/);
+  if (pathMatch && pathMatch[1]) {
+    const emergencyIdFromPath = decodeURIComponent(pathMatch[1]);
+    console.log('Detected emergencyId from URL:', emergencyIdFromPath);
+    showProfileSection();
+    showLoading('Fetching emergency information...');
+    fetchProfile(emergencyIdFromPath);
+    return; // skip setting up scanner if we have the ID already
+  }
   qrRegionId = document.getElementById('qr-reader');
   profileSection = document.getElementById('profile-section');
   profileCard = document.getElementById('profile-card');
@@ -135,25 +145,20 @@ async function startScanner() {
     };
 
     // Optimised scanner configuration for faster & more precise detection
-    const viewportW = Math.min(window.innerWidth, 600);
     const config = {
-      fps: 30, // higher frame rate
-      qrbox: viewportW * 0.8, // dynamic box uses 80% of viewport width
+      fps: 25, // higher frame rate for quicker detection
+      qrbox: 250, // simpler box specification, auto–centred
       aspectRatio: 1.0,
-      disableFlip: true, // assume rear camera, skip mirror transform for speed
       rememberLastUsedCamera: true,
       experimentalFeatures: {
+        // Use native BarcodeDetector API in modern browsers (significant speed boost)
         useBarCodeDetectorIfSupported: true
       },
-      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE], // limit to QR only for efficiency
       videoConstraints: {
         facingMode: { ideal: "environment" },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
-        advanced: [
-          { focusMode: "continuous" }, // continuous autofocus (where supported)
-          { zoom: 2 } // attempt 2x digital zoom for distant codes
-        ]
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
       }
     };
 
@@ -254,8 +259,8 @@ function extractEmergencyId(text) {
     return directMatch[1];
   }
 
-  // Try if the text itself is just the ID
-  if (text && text.length > 10 && text.length < 100 && !text.includes(' ')) {
+  // Try if the text itself is just the ID (UUID v4 or similar)
+  if (text && text.length >= 8 && text.length < 150 && !text.includes(' ')) {
     console.log('Treating text as direct emergency ID:', text);
     return text;
   }

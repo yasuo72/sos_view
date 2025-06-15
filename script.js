@@ -49,6 +49,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   qrScanBtn = document.getElementById('qr-scan-btn');
   faceScanBtn = document.getElementById('face-scan-btn');
 
+  // Helper functions
+  function showLoading(message = 'Loading...') {
+    profileCard.innerHTML = `<div class="loader">${message}</div>`;
+  }
+
+  function showError(message) {
+    profileCard.innerHTML = `<div class="error">${message}</div>`;
+  }
+
   // Initialize MediaPipe Face Detection
   const faceDetection = new FaceDetection({locateFile: (file) => {
     return `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4/${file}`;

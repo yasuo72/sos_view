@@ -427,17 +427,24 @@ async function startScanner() {
     }
     
     showError(errorMessage);
+// Function to scan QR code from image file
 async function scanImageFile(file) {
   try {
+    console.log('Starting to scan image file:', file.name);
     const qr = new Html5Qrcode("qr-reader");
     const result = await qr.scanFile(file);
+    console.log('QR scan result:', result);
+    
     if (result) {
       const emergencyId = extractEmergencyId(result);
+      console.log('Extracted emergency ID:', emergencyId);
+      
       if (emergencyId) {
         showProfileSection();
         showLoading('Fetching emergency information...');
         fetchProfile(emergencyId);
       } else {
+        console.error('Invalid QR code format detected');
         showError('Invalid QR code format');
       }
     }

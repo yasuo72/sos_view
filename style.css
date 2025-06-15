@@ -264,16 +264,147 @@ header::before {
   margin: 2rem auto;
   width: 320px;
   height: 320px;
-  max-width: 90%;
-  background: #000;
   border-radius: var(--border-radius);
+  background: rgba(0, 0, 0, 0.1);
+  border: 2px solid var(--primary-color);
   overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  transition: var(--transition);
+  
+  &:hover {
+    transform: scale(1.02);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  }
+
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(0, 168, 204, 0.1) 0%, rgba(0, 168, 204, 0.05) 50%, rgba(0, 168, 204, 0.1) 100%);
+    animation: scanGradient 2s infinite;
+  }
 }
 
-.qr-reader {
+@keyframes scanGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+#face-video {
   width: 100%;
   height: 100%;
+  object-fit: contain;
   border-radius: var(--border-radius);
+  filter: brightness(1.1) contrast(1.2);
+  transform: scale(1.02);
+  transition: var(--transition);
+}
+
+.face-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.face-status {
+  position: absolute;
+  bottom: -3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--text-light);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: var(--transition);
+  
+  &.success {
+    background: rgba(81, 207, 102, 0.8);
+    color: var(--text-light);
+    animation: pulse 1s infinite;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(81, 207, 102, 0.2);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 8px 24px rgba(81, 207, 102, 0.3);
+  }
+}
+
+.face-detection-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.face-detection-line {
+  position: absolute;
+  background: linear-gradient(90deg, rgba(0, 168, 204, 0.2), rgba(0, 168, 204, 0.8), rgba(0, 168, 204, 0.2));
+  border-radius: 4px;
+  animation: scanLine 2s infinite;
+}
+
+@keyframes scanLine {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.face-detection-line:nth-child(1) {
+  top: 25%;
+  height: 1px;
+  width: 100%;
+  animation-delay: 0s;
+}
+
+.face-detection-line:nth-child(2) {
+  left: 25%;
+  width: 1px;
+  height: 100%;
+  animation-delay: 0.2s;
+}
+
+.face-detection-line:nth-child(3) {
+  top: 75%;
+  height: 1px;
+  width: 100%;
+  animation-delay: 0.4s;
+}
+
+.face-detection-line:nth-child(4) {
+  left: 75%;
+  width: 1px;
+  height: 100%;
+  animation-delay: 0.6s;
 }
 
 .scanner-overlay {

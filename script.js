@@ -7,6 +7,28 @@ let faceOverlay = null;
 let faceStatus = null;
 let faceScanInterval = null;
 
+// Cleanup function for face detection
+const cleanupFaceDetection = () => {
+  if (faceDetector) {
+    faceDetector.dispose();
+    faceDetector = null;
+  }
+  if (faceVideo) {
+    faceVideo.srcObject = null;
+    faceVideo = null;
+  }
+  if (faceScanInterval) {
+    clearInterval(faceScanInterval);
+    faceScanInterval = null;
+  }
+  if (faceOverlay) {
+    faceOverlay.innerHTML = '';
+  }
+};
+
+// Add cleanup on unload
+window.addEventListener('beforeunload', cleanupFaceDetection);
+
 // QR scanning variables
 let qrRegionId = null;
 let profileSection = null;
@@ -21,10 +43,70 @@ let qrScanBtn = null;
 let faceScanBtn = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Initialize face detection
-  faceVideo = document.getElementById('face-video');
-  faceOverlay = document.getElementById('face-overlay');
-  faceStatus = document.getElementById('face-status');
+  try {
+    // Initialize face detection
+    faceVideo = document.getElementById('face-video');
+    faceOverlay = document.getElementById('face-overlay');
+    faceStatus = document.getElementById('face-status');
+
+    // Initialize face detector
+    faceDetector = new FaceDetector({
+      runtime: 'mediapipe',
+      maxDetectors: 1,
+      detectionType: 'face',
+      detectLandmarks: false,
+      returnFaceGeometry: false
+    });
+
+    // Start face detection
+    faceScanInterval = setInterval(async () => {
+      if (faceVideo && faceVideo.readyState === 4) {
+        try {
+          const faces = await faceDetector.detect(faceVideo);
+          if (faces.length > 0) {
+            faceStatus.textContent = 'Face Detected';
+            faceStatus.style.color = '#4CAF50';
+          } else {
+            faceStatus.textContent = 'No Face Detected';
+            faceStatus.style.color = '#f44336';
+          }
+        } catch (error) {
+          console.error('Face detection error:', error);
+          faceStatus.textContent = 'Error: ' + error.message;
+          faceStatus.style.color = '#f44336';
+        }
+      }
+    }, 1000);
+
+    // Add cleanup on face scan button click
+    faceScanBtn.addEventListener('click', async () => {
+      cleanupFaceDetection();
+      startScanner();
+    });
+
+    // Add cleanup on QR scan button click
+    qrScanBtn.addEventListener('click', async () => {
+      cleanupFaceDetection();
+      startScanner();
+    });
+
+  } catch (error) {
+    console.error('Failed to initialize face detection:', error);
+    faceStatus.textContent = 'Face Detection Error';
+    faceStatus.style.color = '#f44336';
+  } finally {
+    // Continue with QR scanner initialization
+    qrRegionId = document.getElementById('qr-reader');
+    profileSection = document.getElementById('profile-section');
+    profileCard = document.getElementById('profile-card');
+    scanAgainBtn = document.getElementById('scan-again');
+    scannerSection = document.getElementById('scanner-section');
+    cameraAccessBtn = document.getElementById('camera-access-btn');
+    uploadBtn = document.getElementById('upload-btn');
+    fileInput = document.getElementById('file-input');
+    qrScanBtn = document.getElementById('qr-scan-btn');
+    faceScanBtn = document.getElementById('face-scan-btn');
+  }
   
   // Auto-detect emergencyId from URL (e.g., /emergency/view/<id>)
   const pathMatch = window.location.pathname.match(/(?:emergency\/view|view)\/(.+)$/);

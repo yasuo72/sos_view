@@ -513,15 +513,61 @@ async function fetchProfile(emergencyId) {
     console.log('Starting profile fetch for emergency ID:', emergencyId);
     console.log('Backend base URL:', BACKEND_BASE_URL);
 
-    // Try different possible endpoints
-    const endpoints = [
-      `/api/emergency/${emergencyId}`,
-      `/api/users/emergency/${emergencyId}`,
-      `/api/qr/emergency/${emergencyId}`,
-      `/api/emergency/profile/${emergencyId}`,
-      `/api/users/${emergencyId}`,
-      `/emergency/${emergencyId}`
-    ];
+    // Use the correct profile endpoint
+    const endpoint = `/api/user/profile`;
+    const url = `${BACKEND_BASE_URL}${endpoint}?nocache=${Date.now()}`;
+    console.log('Making HTTP request to:', url);
+    console.log('Request headers:', {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    });
+
+    const startTime = Date.now();
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+    const endTime = Date.now();
+    
+    console.log(`Request took ${endTime - startTime}ms`);
+    console.log(`Response status: ${res.status}`);
+    console.log('Response headers:', Object.fromEntries(res.headers.entries()));
+
+    if (res.ok) {
+      const responseText = await res.text();
+      console.log('Full response body:', responseText);
+      
+      try {
+        const data = JSON.parse(responseText);
+        console.log('Parsed response data:', data);
+        
+        // Check if we got the profile data
+        if (data?.data) {
+          return data.data;
+        } else {
+          console.error('No profile data in response:', data);
+          throw new Error('No profile data in response');
+        }
+      } catch (parseErr) {
+        console.error('JSON parse error:', parseErr);
+        console.log('Raw response text:', responseText);
+        throw new Error('Invalid JSON response');
+      }
+    } else {
+      const errorText = await res.text();
+      console.error('Error response:', {
+        status: res.status,
+        text: errorText
+      });
+      throw new Error(`Server error: ${res.status} ${errorText}`);
+    }
+  } catch (error) {
+    console.error('Error fetching profile:', error);
+    throw error;
+  }
 
     console.log('Trying endpoints:', endpoints.join(', '));
     console.log('Full URLs to try:', endpoints.map(ep => `${BACKEND_BASE_URL}${ep}`).join(', '));

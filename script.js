@@ -81,20 +81,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Attach upload events once
-  if (uploadBtn && fileInput) {
-    uploadBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        showProfileSection();
-        showLoading('Scanning image...');
-        scanImageFile(file);
-        e.target.value = '';
-      }
-    });
-  }
-
   if (!qrRegionId || !profileSection || !profileCard || !scanAgainBtn || !scannerSection || !cameraAccessBtn) {
     console.error('DOM elements not found');
     return;
@@ -166,46 +152,24 @@ async function startScanner() {
       throw new Error('Html5Qrcode library not loaded');
     }
 
+    // Stop any existing scanner
     if (html5QrCode) {
-      try {
-        await html5QrCode.stop();
-        html5QrCode.clear();
-      } catch (stopError) {
-        console.log('Error stopping previous scanner:', stopError);
-      }
+      html5QrCode.stop().catch(console.error);
       html5QrCode = null;
     }
 
-    html5QrCode = new Html5Qrcode("qr-reader");
-
-    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-      console.log('QR Code scanned:', decodedText);
-      const emergencyId = extractEmergencyId(decodedText);
-      if (emergencyId) {
-        html5QrCode.stop().catch(console.error);
-        showProfileSection();
-        showLoading('Fetching emergency information...');
-        fetchProfile(emergencyId);
-      } else {
-        showError('Invalid QR code format. Please scan a valid MedAssist+ emergency QR code.');
-      }
-    };
-
-    const qrCodeErrorCallback = (error) => {
-      // Ignore frequent scanning errors
-    };
-
-    // Optimised scanner configuration for faster & more precise detection
-    const config = {
-      fps: 25, // higher frame rate for quicker detection
-      qrbox: 250, // simpler box specification, auto–centred
+    // Initialize QR scanning
+    html5QrCode = new Html5Qrcode('qr-reader');
+    
+    const qrConfig = {
+      fps: 25,
+      qrbox: 250,
       aspectRatio: 1.0,
       rememberLastUsedCamera: true,
       experimentalFeatures: {
-        // Use native BarcodeDetector API in modern browsers (significant speed boost)
         useBarCodeDetectorIfSupported: true
       },
-      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE], // limit to QR only for efficiency
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
       videoConstraints: {
         facingMode: { ideal: "environment" },
         width: { ideal: 1280 },
@@ -213,47 +177,228 @@ async function startScanner() {
       }
     };
 
-    // Get available cameras first
+    // Initialize face verification
+    async function startFaceVerification(emergencyId) {
+      try {
+        // Switch to face scan camera
+        if (html5QrCode) {
+          await html5QrCode.stop();
+          html5QrCode = null;
+        }
+        
+        // Start face verification
+        showLoading('Please verify your face...');
+        
+        // Get face video stream
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        faceVideo.srcObject = stream;
+        faceVideo.play();
+        
+        // Start face detection interval
+        faceScanInterval = setInterval(async () => {
+          try {
+            const faces = await faceDetector.detect(faceVideo);
+            if (faces.length > 0) {
+              const face = faces[0];
+              const { x, y, width, height } = face.boundingBox;
+              const overlayCtx = faceOverlay.getContext('2d');
+              overlayCtx.clearRect(0, 0, faceOverlay.width, faceOverlay.height);
+              overlayCtx.strokeStyle = '#4CAF50';
+              overlayCtx.lineWidth = 2;
+              overlayCtx.strokeRect(x, y, width, height);
+              
+              // Check if face is centered
+              const centerThreshold = 0.1;
+              const centerX = faceVideo.width / 2;
+              const centerY = faceVideo.height / 2;
+              const faceCenterX = x + width / 2;
+              const faceCenterY = y + height / 2;
+              
+              const isCentered = Math.abs((faceCenterX - centerX) / centerX) < centerThreshold &&
+                               Math.abs((faceCenterY - centerY) / centerY) < centerThreshold;
+              
+              if (isCentered) {
+                document.getElementById('face-status').textContent = 'Face detected and centered!';
+                document.getElementById('face-status').style.color = '#4CAF50';
+                
+                // Verify face against stored biometrics
+                try {
+                  const response = await fetch(`${BACKEND_BASE_URL}/api/auth/verify-face`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                      faceData: face,
+                      emergencyId
+                    })
+                  });
+                  
+                  if (response.ok) {
+                    const data = await response.json();
+                    if (data.verified) {
+                      // Face verified, proceed to profile
+                      showProfileSection();
+                      fetchProfile(emergencyId);
+                      clearInterval(faceScanInterval);
+                      faceVideo.pause();
+                    } else {
+                      showError('Face verification failed');
+                    }
+                  } else {
+                    showError('Verification failed');
+                  }
+                } catch (error) {
+                  console.error('Face verification error:', error);
+                  showError('Verification failed');
+                }
+              } else {
+                document.getElementById('face-status').textContent = 'Please center your face';
+                document.getElementById('face-status').style.color = '#FF9800';
+              }
+            } else {
+              document.getElementById('face-status').textContent = 'No face detected';
+              document.getElementById('face-status').style.color = '#F44336';
+            }
+          } catch (error) {
+            console.error('Face detection error:', error);
+            document.getElementById('face-status').textContent = 'Error detecting face';
+            document.getElementById('face-status').style.color = '#F44336';
+          }
+        }, 100);
+      } catch (error) {
+        console.error('Face verification error:', error);
+        showError('Error starting face verification');
+      }
+    }
+
+    const qrSuccessCallback = (decodedText, decodedResult) => {
+      try {
+        const emergencyId = extractEmergencyId(decodedText);
+        if (emergencyId) {
+          // Stop scanner and show profile
+          html5QrCode.stop().catch(console.error);
+          showProfileSection();
+          showLoading('Fetching emergency information...');
+          
+          // Verify face before showing profile
+          if (document.getElementById('face-scan-btn').classList.contains('active')) {
+            startFaceVerification(emergencyId);
+          } else {
+            fetchProfile(emergencyId);
+          }
+        } else {
+          showError('Invalid QR code format');
+        }
+      } catch (error) {
+        console.error('Error processing QR code:', error);
+        showError('Error reading QR code');
+      }
+    };
+
+    const qrErrorCallback = (error) => {
+      console.error('QR code scanning error:', error);
+      showError('Error scanning QR code');
+    };
+
+    // Get available cameras
     const cameras = await Html5Qrcode.getCameras();
-    if (cameras && cameras.length === 0) {
+    if (cameras.length === 0) {
       throw new Error('No cameras found on this device');
     }
 
-    console.log('Available cameras:', cameras);
-
     // Try different camera approaches
-    let cameraStarted = false;
     const cameraOptions = [
       { facingMode: "environment" },
       { facingMode: "user" },
-      cameras?.[0]?.id ? cameras[0].id : null
+      cameras[0].id
     ].filter(Boolean);
 
+    // Try each camera option
+    let cameraStarted = false;
     for (const cameraOption of cameraOptions) {
       try {
         console.log('Trying camera option:', cameraOption);
-        await html5QrCode.start(
-          cameraOption, 
-          config, 
-          qrCodeSuccessCallback,
-          qrCodeErrorCallback
-        );
+        await html5QrCode.start(cameraOption, qrConfig, qrSuccessCallback, qrErrorCallback);
         cameraStarted = true;
-        console.log('Camera started successfully with option:', cameraOption);
         break;
-      } catch (cameraError) {
-        console.log('Camera option failed:', cameraOption, cameraError);
-        continue;
+      } catch (error) {
+        console.log('Failed to start with option:', cameraOption, error);
       }
     }
 
     if (!cameraStarted) {
-      throw new Error('Unable to start any camera');
+      throw new Error('Failed to start QR scanner with any camera');
+    }
+
+  } catch (error) {
+    console.error('Error in startScanner:', error);
+    showError('Error initializing scanner: ' + error.message);
+  }
+
+  // Handle camera access button
+  if (cameraAccessBtn) {
+    cameraAccessBtn.addEventListener('click', async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.play();
+        
+        // Scan QR code from video stream
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const scan = async () => {
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            const qrData = await jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+            if (qrData) {
+              const emergencyId = extractEmergencyId(qrData.data);
+              if (emergencyId) {
+                showProfileSection();
+                showLoading('Fetching emergency information...');
+                
+                // Verify face before showing profile
+                if (document.getElementById('face-scan-btn').classList.contains('active')) {
+                  startFaceVerification(emergencyId);
+                } else {
+                  fetchProfile(emergencyId);
+                }
+              }
+            }
+          }
+          requestAnimationFrame(scan);
+        };
+        scan();
+      } catch (error) {
+        console.error('Camera access error:', error);
+        showError('Camera access denied');
+      }
+    });
+    try {
+    // Try each camera option
+    let cameraStarted = false;
+    for (const cameraOption of cameraOptions) {
+      try {
+        console.log('Trying camera option:', cameraOption);
+        await html5QrCode.start(cameraOption, qrConfig, qrSuccessCallback, qrErrorCallback);
+        cameraStarted = true;
+        console.log('Camera started successfully with option:', cameraOption);
+        return;
+      } catch (error) {
+        console.log('Failed to start with option:', cameraOption, error);
+      }
+    }
+
+    if (!cameraStarted) {
+      throw new Error('Failed to start QR scanner with any camera');
     }
 
     cameraAccessBtn.textContent = 'Camera Active';
     cameraAccessBtn.disabled = true;
-
   } catch (err) {
     console.error('Error starting scanner:', err);
     let errorMessage = 'Unable to access camera. ';
@@ -265,12 +410,27 @@ async function startScanner() {
     } else if (err.message.includes('NotReadableError')) {
       errorMessage += 'Camera is being used by another application.';
     } else {
-      errorMessage += 'Please check camera permissions and try again.';
+      errorMessage += 'An unexpected error occurred.';
     }
     
     showError(errorMessage);
-    cameraAccessBtn.textContent = 'Retry Camera Access';
-    cameraAccessBtn.disabled = false;
+async function scanImageFile(file) {
+  try {
+    const qr = new Html5Qrcode("qr-reader");
+    const result = await qr.scanFile(file);
+    if (result) {
+      const emergencyId = extractEmergencyId(result);
+      if (emergencyId) {
+        showProfileSection();
+        showLoading('Fetching emergency information...');
+        fetchProfile(emergencyId);
+      } else {
+        showError('Invalid QR code format');
+      }
+    }
+  } catch (err) {
+    console.error('Error scanning image:', err);
+    showError('Error scanning image. Please try again.');
   }
 }
 
@@ -427,50 +587,64 @@ async function fetchProfile(emergencyId) {
   }
 }
 
-function displayProfile(profile) {
-  console.log('Full profile data:', JSON.stringify(profile, null, 2));
-  
-  const { user, familyMembers = [], emergencyContacts = [] } = profile;
-  const profileContainer = document.querySelector('.profile-container');
-
-  if (!profileContainer) {
-    console.error('Profile container not found');
+  if (!data) {
+    showError(`Could not fetch profile data. Emergency ID: ${emergencyId}. Last error: ${lastError}`);
     return;
   }
 
+  console.log('Full API response:', JSON.stringify(data, null, 2));
+
+  // Handle different possible data structures
+  if (data.success === false || data.error) {
+    throw new Error(data.message || data.error || 'API returned error');
+  }
+
+  try {
+    displayProfile(data);
+  } catch (err) {
+    console.error('Error in fetchProfile:', err);
+    showError(`Error fetching profile: ${err.message}`);
+  }
+}
+
+function displayProfile(profile) {
+  if (!profile) return;
+  const profileContainer = document.getElementById('profile-card');
+  if (!profileContainer) return;
+
   // Handle nested user properties - check multiple possible data structures
-  const userData = user || profile; // Fallback to profile if user is not nested
-  
+  const userData = profile.user || profile; // Fallback to profile if user is not nested
+
   // More comprehensive field mapping
   const name = userData.name || userData.fullName || userData.firstName || userData.username || 'Emergency Contact';
   const bloodGroup = userData.bloodGroup || userData.blood_group || userData.bloodType || userData.blood || '—';
-  
+
   // Handle allergies in different formats
   let allergies = userData.allergies || userData.allergy || userData.allergiesList || [];
   if (typeof allergies === 'string') {
     allergies = allergies.split(',').map(a => a.trim()).filter(a => a);
   }
-  
+
   // Handle medical conditions
   let conditions = userData.medicalConditions || userData.medical_conditions || userData.conditions || userData.medicalHistory || [];
   if (typeof conditions === 'string') {
     conditions = conditions.split(',').map(c => c.trim()).filter(c => c);
   }
-  
+
   // Handle medications
   let medications = userData.currentMedications || userData.medications || userData.drugs || [];
   if (typeof medications === 'string') {
     medications = medications.split(',').map(m => m.trim()).filter(m => m);
   }
-  
+
   // Handle emergency contacts
-  const emergencyContactsList = emergencyContacts.length > 0 ? emergencyContacts : (userData.emergencyContacts || userData.contacts || []);
-  
+  const emergencyContactsList = profile.emergencyContacts.length > 0 ? profile.emergencyContacts : (userData.emergencyContacts || userData.contacts || []);
+
   // Additional fields that might be useful
   const age = userData.age || userData.dateOfBirth || '';
   const phone = userData.phone || userData.phoneNumber || userData.mobile || '';
   const email = userData.email || userData.emailAddress || '';
-  
+
   console.log('Extracted data:', { 
     name, bloodGroup, allergies, conditions, medications, emergencyContacts: emergencyContactsList, age, phone, email
   });
@@ -479,59 +653,109 @@ function displayProfile(profile) {
   const allFields = Object.keys(userData).map(key => `${key}: ${JSON.stringify(userData[key])}`).join('<br>');
 
   profileContainer.innerHTML = `
-    <div id="profile-card" class="profile-card">
-      <h3>${name}</h3>
-      <div class="profile-info">
-        ${age ? `<p><strong>Age:</strong> ${age}</p>` : ''}
-        ${phone ? `<p><strong>Phone:</strong> <a href="tel:${phone}">${phone}</a></p>` : ''}
-        ${email ? `<p><strong>Email:</strong> ${email}</p>` : ''}
-        <p><strong>Blood Group:</strong> ${bloodGroup}</p>
-        <p><strong>Allergies:</strong> ${Array.isArray(allergies) && allergies.length > 0 ? allergies.join(', ') : (allergies || 'None reported')}</p>
-        <p><strong>Medical Conditions:</strong> ${Array.isArray(conditions) && conditions.length > 0 ? conditions.join(', ') : (conditions || 'None reported')}</p>
-        ${Array.isArray(medications) && medications.length > 0 ? `<p><strong>Current Medications:</strong> ${medications.join(', ')}</p>` : ''}
-      </div>
-      ${familyMembers.length > 0 ? `
-        <div class="section">
-          <h4>Family Members</h4>
-          <ul>${familyMembers.map(m => `<li>${m.name} (${m.relationship})</li>`).join('')}</ul>
-        </div>` : ''}
-      ${emergencyContactsList.length > 0 ? `
-        <div class="section">
-          <h4>Emergency Contacts</h4>
-          <ul>${emergencyContactsList.map(c => `<li>${c.name}: <a href="tel:${c.phone}">${c.phone}</a></li>`).join('')}</ul>
-        </div>` : ''}
-      <div class="debug-section">
-        <strong>Debug Info:</strong><br>
-        Emergency ID: ${userData.emergencyId || userData.id || 'Not found'}<br>
-        <details>
-          <summary>All Available Fields</summary>
-          <div style="font-size: 0.7rem; margin-top: 0.5rem; max-height: 200px; overflow-y: auto;">
-            ${allFields}
-          </div>
-        </details>
-      </div>
+  <div class="profile-card">
+    <h3>${name}</h3>
+    <div class="profile-info">
+      ${age ? `<p><strong>Age:</strong> ${age}</p>` : ''}
+      ${phone ? `<p><strong>Phone:</strong> <a href="tel:${phone}">${phone}</a></p>` : ''}
+      ${email ? `<p><strong>Email:</strong> ${email}</p>` : ''}
+      <p><strong>Blood Group:</strong> ${bloodGroup}</p>
+      <p><strong>Allergies:</strong> ${Array.isArray(allergies) && allergies.length > 0 ? allergies.join(', ') : (allergies || 'None reported')}</p>
+      <p><strong>Medical Conditions:</strong> ${Array.isArray(conditions) && conditions.length > 0 ? conditions.join(', ') : (conditions || 'None reported')}</p>
+      ${Array.isArray(medications) && medications.length > 0 ? `<p><strong>Current Medications:</strong> ${medications.join(', ')}</p>` : ''}
     </div>
+    ${profile.familyMembers.length > 0 ? `
+      <div class="section">
+        <h4>Family Members</h4>
+        <ul>${profile.familyMembers.map(m => `<li>${m.name} (${m.relationship})</li>`).join('')}</ul>
+      </div>
+    ` : ''}
+    ${emergencyContactsList.length > 0 ? `
+      <div class="section">
+        <h4>Emergency Contacts</h4>
+        <ul>${emergencyContactsList.map(c => `<li>${c.name}: <a href="tel:${c.phone}">${c.phone}</a></li>`).join('')}</ul>
+      </div>
+    ` : ''}
+    <div class="debug-section">
+      <strong>Debug Info:</strong><br>
+      Emergency ID: ${userData.emergencyId || userData.id || 'Not found'}<br>
+      <details>
+        <summary>All Available Fields</summary>
+        <div style="font-size: 0.7rem; margin-top: 0.5rem; max-height: 200px; overflow-y: auto;">
+          ${allFields}
+        </div>
+      </details>
+    </div>
+  </div>
   `;
 }
+const bloodGroup = userData.bloodGroup || userData.blood_group || userData.bloodType || userData.blood || '—';
+  
+// Handle allergies in different formats
+let allergies = userData.allergies || userData.allergy || userData.allergiesList || [];
+if (typeof allergies === 'string') {
+allergies = allergies.split(',').map(a => a.trim()).filter(a => a);
+}
+  
+// Handle medical conditions
+let conditions = userData.medicalConditions || userData.medical_conditions || userData.conditions || userData.medicalHistory || [];
+if (typeof conditions === 'string') {
+conditions = conditions.split(',').map(c => c.trim()).filter(c => c);
+}
+  
+// Handle medications
+let medications = userData.currentMedications || userData.medications || userData.drugs || [];
+if (typeof medications === 'string') {
+medications = medications.split(',').map(m => m.trim()).filter(m => m);
+}
+  
+// Handle emergency contacts
+const emergencyContactsList = emergencyContacts.length > 0 ? emergencyContacts : (userData.emergencyContacts || userData.contacts || []);
+  
+// Additional fields that might be useful
+const age = userData.age || userData.dateOfBirth || '';
+const phone = userData.phone || userData.phoneNumber || userData.mobile || '';
+const email = userData.email || userData.emailAddress || '';
+  
+console.log('Extracted data:', { 
+name, bloodGroup, allergies, conditions, medications, emergencyContacts: emergencyContactsList, age, phone, email
+});
 
-// === Image Upload QR Scanning ===
-async function scanImageFile(file) {
-  try {
-    const qr = new Html5Qrcode("qr-reader");
-    const decodedText = await qr.scanFile(file, false);
-    console.log('Decoded from image:', decodedText);
+// Show all available data for debugging
+const allFields = Object.keys(userData).map(key => `${key}: ${JSON.stringify(userData[key])}`).join('<br>');
 
-    const emergencyId = extractEmergencyId(decodedText);
-    if (emergencyId) {
-      showLoading('Fetching emergency information...');
-      fetchProfile(emergencyId);
-      return;
-    }
-
-    // Could extend to other QR formats (e.g., email|token) here
-    showError('Invalid or unsupported QR code in image.');
-  } catch (err) {
-    console.error('scanImageFile error:', err);
-    showError('Unable to decode QR code from image.');
-  }
+profileContainer.innerHTML = `
+<div id="profile-card" class="profile-card">
+<h3>${name}</h3>
+<div class="profile-info">
+${age ? `<p><strong>Age:</strong> ${age}</p>` : ''}
+${phone ? `<p><strong>Phone:</strong> <a href="tel:${phone}">${phone}</a></p>` : ''}
+${email ? `<p><strong>Email:</strong> ${email}</p>` : ''}
+<p><strong>Blood Group:</strong> ${bloodGroup}</p>
+<p><strong>Allergies:</strong> ${Array.isArray(allergies) && allergies.length > 0 ? allergies.join(', ') : (allergies || 'None reported')}</p>
+<p><strong>Medical Conditions:</strong> ${Array.isArray(conditions) && conditions.length > 0 ? conditions.join(', ') : (conditions || 'None reported')}</p>
+${Array.isArray(medications) && medications.length > 0 ? `<p><strong>Current Medications:</strong> ${medications.join(', ')}</p>` : ''}
+</div>
+${familyMembers.length > 0 ? `
+<div class="section">
+<h4>Family Members</h4>
+<ul>${familyMembers.map(m => `<li>${m.name} (${m.relationship})</li>`).join('')}</ul>
+</div>` : ''}
+${emergencyContactsList.length > 0 ? `
+<div class="section">
+<h4>Emergency Contacts</h4>
+<ul>${emergencyContactsList.map(c => `<li>${c.name}: <a href="tel:${c.phone}">${c.phone}</a></li>`).join('')}</ul>
+</div>` : ''}
+<div class="debug-section">
+<strong>Debug Info:</strong><br>
+Emergency ID: ${userData.emergencyId || userData.id || 'Not found'}<br>
+<details>
+<summary>All Available Fields</summary>
+<div style="font-size: 0.7rem; margin-top: 0.5rem; max-height: 200px; overflow-y: auto;">
+${allFields}
+</div>
+</details>
+</div>
+</div>
+`;
 }

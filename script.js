@@ -1,5 +1,13 @@
 const BACKEND_BASE_URL = 'https://medassistbackend-production.up.railway.app';
 
+// Face detection variables
+let faceDetector = null;
+let faceVideo = null;
+let faceOverlay = null;
+let faceStatus = null;
+let faceScanInterval = null;
+
+// QR scanning variables
 let qrRegionId = null;
 let profileSection = null;
 let profileCard = null;
@@ -9,8 +17,15 @@ let cameraAccessBtn = null;
 let html5QrCode = null;
 let uploadBtn = null;
 let fileInput = null;
+let qrScanBtn = null;
+let faceScanBtn = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Initialize face detection
+  faceVideo = document.getElementById('face-video');
+  faceOverlay = document.getElementById('face-overlay');
+  faceStatus = document.getElementById('face-status');
+  
   // Auto-detect emergencyId from URL (e.g., /emergency/view/<id>)
   const pathMatch = window.location.pathname.match(/(?:emergency\/view|view)\/(.+)$/);
   if (pathMatch && pathMatch[1]) {
@@ -21,6 +36,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     fetchProfile(emergencyIdFromPath);
     return; // skip setting up scanner if we have the ID already
   }
+  
+  // Get DOM elements
   qrRegionId = document.getElementById('qr-reader');
   profileSection = document.getElementById('profile-section');
   profileCard = document.getElementById('profile-card');
@@ -29,6 +46,40 @@ document.addEventListener('DOMContentLoaded', async () => {
   cameraAccessBtn = document.getElementById('camera-access-btn');
   uploadBtn = document.getElementById('upload-btn');
   fileInput = document.getElementById('file-input');
+  qrScanBtn = document.getElementById('qr-scan-btn');
+  faceScanBtn = document.getElementById('face-scan-btn');
+
+  // Initialize face detector
+  faceDetector = new FaceDetector({
+    maxDetectedFaces: 1,
+    detectLandmarks: 'all',
+    detectIris: true,
+    minFaceSize: 0.2
+  });
+
+  // Add scan method toggle handlers
+  if (qrScanBtn && faceScanBtn) {
+    qrScanBtn.addEventListener('click', () => {
+      toggleScanMethod('qr');
+    });
+    faceScanBtn.addEventListener('click', () => {
+      toggleScanMethod('face');
+    });
+  }
+
+  // Attach upload events once
+  if (uploadBtn && fileInput) {
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        showProfileSection();
+        showLoading('Scanning image...');
+        scanImageFile(file);
+        e.target.value = '';
+      }
+    });
+  }
 
   // Attach upload events once
   if (uploadBtn && fileInput) {

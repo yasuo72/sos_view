@@ -12,6 +12,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.4/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.4/control_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4/face_detection.js"></script>
 </head>
 <body>
   <!-- Animated Background -->
@@ -48,6 +51,16 @@
       <section id="scanner-section" class="scanner-section">
         <div class="scanner-container">
           <div class="scanner-header">
+            <div class="scan-methods">
+              <button id="qr-scan-btn" class="scan-method-btn active">
+                <i class="ti ti-qr-code"></i>
+                <span>QR Scan</span>
+              </button>
+              <button id="face-scan-btn" class="scan-method-btn">
+                <i class="ti ti-face-id"></i>
+                <span>Face Scan</span>
+              </button>
+            </div>
             <i class="ti ti-scan"></i>
             <h2>Emergency QR Scanner</h2>
           </div>

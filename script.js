@@ -49,13 +49,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   qrScanBtn = document.getElementById('qr-scan-btn');
   faceScanBtn = document.getElementById('face-scan-btn');
 
-  // Initialize face detector
-  faceDetector = new FaceDetector({
-    maxDetectedFaces: 1,
-    detectLandmarks: 'all',
-    detectIris: true,
-    minFaceSize: 0.2
-  });
+  // Initialize MediaPipe Face Detection
+  const faceDetection = new FaceDetection({locateFile: (file) => {
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4/${file}`;
+  }});
+  
+  faceDetector = {
+    async detect(image) {
+      const faces = await faceDetection.send({image: image});
+      return faces.detections[0]; // Return first face detection
+    }
+  };
 
   // Add scan method toggle handlers
   if (qrScanBtn && faceScanBtn) {
@@ -758,4 +762,5 @@ ${allFields}
 </div>
 </div>
 `;
+}
 }

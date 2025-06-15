@@ -510,7 +510,8 @@ function showError(message) {
 
 async function fetchProfile(emergencyId) {
   try {
-    console.log('Fetching profile for emergency ID:', emergencyId);
+    console.log('Starting profile fetch for emergency ID:', emergencyId);
+    console.log('Backend base URL:', BACKEND_BASE_URL);
 
     // Try different possible endpoints
     const endpoints = [
@@ -521,6 +522,65 @@ async function fetchProfile(emergencyId) {
       `/api/users/${emergencyId}`,
       `/emergency/${emergencyId}`
     ];
+
+    console.log('Trying endpoints:', endpoints.join(', '));
+    console.log('Full URLs to try:', endpoints.map(ep => `${BACKEND_BASE_URL}${ep}`).join(', '));
+
+    // Add a delay to make it easier to see logs
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    for (const endpoint of endpoints) {
+      try {
+        const url = `${BACKEND_BASE_URL}${endpoint}?nocache=${Date.now()}`;
+        console.log('Making HTTP request to:', url);
+        console.log('Request headers:', {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        });
+
+        const startTime = Date.now();
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+        const endTime = Date.now();
+        
+        console.log(`Request took ${endTime - startTime}ms`);
+        console.log(`Response status: ${res.status}`);
+        console.log('Response headers:', Object.fromEntries(res.headers.entries()));
+
+        if (res.ok) {
+          const responseText = await res.text();
+          console.log('Full response body:', responseText);
+          
+          try {
+            data = JSON.parse(responseText);
+            successEndpoint = endpoint;
+            console.log('Parsed response data:', data);
+            break;
+          } catch (parseErr) {
+            console.error('JSON parse error:', parseErr);
+            console.log('Raw response text:', responseText);
+            lastError = `${endpoint}: Invalid JSON response`;
+            continue;
+          }
+        } else {
+          const errorText = await res.text();
+          console.error('Error response:', {
+            status: res.status,
+            text: errorText
+          });
+          lastError = `${endpoint}: ${res.status} ${errorText}`;
+        }
+      } catch (fetchErr) {
+        console.error('Fetch error:', fetchErr);
+        lastError = `${endpoint}: ${fetchErr.message}`;
+        continue;
+      }
+    }
 
     let data = null;
     let successEndpoint = null;

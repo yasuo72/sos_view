@@ -1,5 +1,19 @@
 const BACKEND_BASE_URL = 'https://medassistbackend-production.up.railway.app';
 
+// Ensure a hidden container exists for file-based QR scans.
+// Html5Qrcode requires a valid DOM element id even when we only call `scanFile`,
+// so we create (once) an off-screen div that will be reused for every
+// image-upload decoding session.
+(function ensureHiddenQrDiv() {
+  if (!document.getElementById('qr-reader-temp')) {
+    const hiddenDiv = document.createElement('div');
+    hiddenDiv.id = 'qr-reader-temp';
+    hiddenDiv.style.display = 'none';
+    // It must be in the DOM *before* we instantiate Html5Qrcode.
+    document.body.appendChild(hiddenDiv);
+  }
+})();
+
 let qrRegionId = null;
 let profileSection = null;
 let profileCard = null;
@@ -79,7 +93,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       showProfileSection();
       showLoading('Scanning image...');
       try {
-        const qrTemp = new Html5Qrcode(/* element id not used for file scan */ "qr-reader-temp");
+        // Pass the id of the hidden container created at start-up.
+        const qrTemp = new Html5Qrcode("qr-reader-temp");
         const decodedText = await qrTemp.scanFile(file, true);
         await qrTemp.clear();
         console.log('Image QR decoded:', decodedText);

@@ -33,6 +33,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   cameraAccessBtn = document.getElementById('camera-access-btn');
   uploadBtn = document.getElementById('upload-btn');
   fileInput = document.getElementById('file-input');
+  const manualField = document.getElementById('manual-id');
+  const manualBtn = document.getElementById('manual-fetch');
 
   if (!qrRegionId || !profileSection || !profileCard || !scanAgainBtn || !scannerSection || !cameraAccessBtn) {
     console.error('DOM elements not found');
@@ -110,6 +112,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       } finally {
         e.target.value = '';
       }
+    });
+  }
+
+  // Manual fetch handler
+  if (manualBtn && manualField) {
+    const triggerFetch = () => {
+      const id = manualField.value.trim();
+      if (id) {
+        showProfileSection();
+        showLoading('Fetching emergency information...');
+        fetchProfile(id);
+      }
+    };
+    manualBtn.addEventListener('click', triggerFetch);
+    manualField.addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') triggerFetch();
     });
   }
 

@@ -336,6 +336,28 @@ header::before {
   border-top: none;
 }
 
+.manual-input {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.manual-field {
+  flex: 1 1 220px;
+  padding: 0.9rem 1.2rem;
+  border: 2px solid var(--primary-color);
+  border-radius: 50px;
+  font-size: 1rem;
+  outline: none;
+  transition: var(--transition);
+  min-width: 0;
+}
+
+.manual-field:focus {
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
 /* Buttons */
 .primary-button, .secondary-button {
   position: relative;

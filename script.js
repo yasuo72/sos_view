@@ -272,8 +272,8 @@ function extractEmergencyId(text) {
     return directMatch[1];
   }
 
-  // Try if the text itself is just the ID
-  if (text && text.length > 10 && text.length < 100 && !text.includes(' ')) {
+  // Treat plain alphanumeric strings (4-64 chars) as direct emergency ID
+  if (text && /^[A-Za-z0-9_-]{4,64}$/.test(text)) {
     console.log('Treating text as direct emergency ID:', text);
     return text;
   }

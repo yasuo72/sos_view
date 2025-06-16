@@ -251,6 +251,13 @@ function extractEmergencyId(text) {
     console.log('Not JSON format, trying other patterns');
   }
 
+  // Try MedAssist+ compact format starting with V1:ID:<id>
+  const v1Match = text.match(/V1:ID:([^,\n]+)/);
+  if (v1Match) {
+    console.log('Found emergency ID from V1 format:', v1Match[1]);
+    return v1Match[1];
+  }
+
   // Try to extract ID from URL format (from emergencyUrl in QR)
   const urlMatch = text.match(/\/emergency\/view\/([^?&#]+)/);
   if (urlMatch) {

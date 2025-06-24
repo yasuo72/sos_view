@@ -153,10 +153,30 @@
   <!-- Face scan modal -->
   <div id="face-modal" class="modal hidden">
     <div class="modal-content">
-      <video id="face-video" autoplay playsinline></video>
-      <button id="capture-face" class="btn primary">Capture</button>
-      <button id="close-face" class="btn">Close</button>
-      <p id="face-status"></p>
+      <div class="modal-header">
+        <h3>Face Scan</h3>
+        <div class="modal-actions">
+          <button id="switch-camera" class="btn icon" title="Switch Camera">
+            <i class="ti ti-camera-rotate"></i>
+          </button>
+          <button id="close-face" class="btn icon" title="Close">
+            <i class="ti ti-x"></i>
+          </button>
+        </div>
+      </div>
+      <div class="camera-container">
+        <video id="face-video" autoplay playsinline></video>
+        <div class="camera-overlay">
+          <div class="face-guide"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="capture-face" class="btn primary">
+          <i class="ti ti-camera"></i>
+          <span>Capture</span>
+        </button>
+        <div id="face-status" class="status-message"></div>
+      </div>
     </div>
   </div>
 </body>

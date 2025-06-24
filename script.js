@@ -41,8 +41,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const faceVideo = document.getElementById('face-video');
   const captureFaceBtn = document.getElementById('capture-face');
   const closeFaceBtn = document.getElementById('close-face');
+  const switchCameraBtn = document.getElementById('switch-camera');
   const faceStatus = document.getElementById('face-status');
+  
   let faceStream = null;
+  let currentFacingMode = 'user'; // 'user' for front camera, 'environment' for back
 
   if (!qrRegionId || !profileSection || !profileCard || !scanAgainBtn || !scannerSection || !cameraAccessBtn) {
     console.error('DOM elements not found');
@@ -143,21 +146,80 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function openFaceModal() {
     faceModal.classList.remove('hidden');
     faceStatus.textContent = '';
-    try {
-      faceStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      faceVideo.srcObject = faceStream;
-    } catch (err) {
-      console.error('Face camera error:', err);
-      faceStatus.textContent = 'Camera error: ' + err.message;
-    }
+    await startCamera('environment'); // Start with back camera by default
   }
 
   function closeFaceModal() {
+    stopCamera();
+    faceModal.classList.add('hidden');
+  }
+
+  async function stopCamera() {
     if (faceStream) {
-      faceStream.getTracks().forEach(t => t.stop());
+      faceStream.getTracks().forEach(track => {
+        track.stop();
+      });
       faceStream = null;
     }
-    faceModal.classList.add('hidden');
+    if (faceVideo.srcObject) {
+      faceVideo.srcObject = null;
+    }
+  }
+
+  async function startCamera(facingMode) {
+    try {
+      // Stop any existing stream first
+      await stopCamera();
+      
+      // Try to get the camera with the specified facing mode
+      const constraints = {
+        video: { 
+          facingMode: { exact: facingMode },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
+        audio: false
+      };
+
+      faceStatus.textContent = 'Accessing camera...';
+      faceStream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      // Update the current facing mode
+      currentFacingMode = facingMode;
+      
+      // Set the video source
+      faceVideo.srcObject = faceStream;
+      faceVideo.play();
+      
+      // Clear any status message after a short delay
+      setTimeout(() => {
+        if (faceStatus.textContent === 'Accessing camera...') {
+          faceStatus.textContent = '';
+        }
+      }, 1000);
+      
+      return true;
+    } catch (err) {
+      console.error('Camera error:', err);
+      
+      // If the requested camera fails, try the other one
+      if (facingMode === 'environment') {
+        faceStatus.textContent = 'Back camera not available, trying front camera...';
+        return startCamera('user');
+      } else if (facingMode === 'user') {
+        faceStatus.textContent = 'Front camera not available, trying back camera...';
+        return startCamera('environment');
+      }
+      
+      faceStatus.textContent = 'Camera error: ' + (err.message || 'Could not access any camera');
+      return false;
+    }
+  }
+  
+  async function switchCamera() {
+    const newFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+    faceStatus.textContent = `Switching to ${newFacingMode === 'user' ? 'front' : 'back'} camera...`;
+    await startCamera(newFacingMode);
   }
 
   async function captureAndIdentify() {
@@ -204,6 +266,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (faceScanBtn) faceScanBtn.addEventListener('click', openFaceModal);
   if (closeFaceBtn) closeFaceBtn.addEventListener('click', closeFaceModal);
   if (captureFaceBtn) captureFaceBtn.addEventListener('click', captureAndIdentify);
+  if (switchCameraBtn) switchCameraBtn.addEventListener('click', switchCamera);
 
   checkLibrary();
 });

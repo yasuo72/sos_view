@@ -67,13 +67,8 @@
           </div>
 
           <div class="camera-controls">
-            <button id="camera-access-btn" class="primary-button">
-              <div class="button-icon">
-                <i class="ti ti-camera"></i>
-              </div>
-              <span>Activate Scanner</span>
-              <div class="button-ripple"></div>
-            </button>
+            <button id="camera-access-btn" class="btn primary">QR Camera</button>
+            <button id="face-scan-btn" class="btn">Face Scan</button>
             <button id="upload-btn" class="secondary-button" style="margin-left: 12px;">
               <div class="button-icon">
                 <i class="ti ti-photo"></i>
@@ -155,5 +150,14 @@
   </div>
 
   <script src="script.js"></script>
+  <!-- Face scan modal -->
+  <div id="face-modal" class="modal hidden">
+    <div class="modal-content">
+      <video id="face-video" autoplay playsinline></video>
+      <button id="capture-face" class="btn primary">Capture</button>
+      <button id="close-face" class="btn">Close</button>
+      <p id="face-status"></p>
+    </div>
+  </div>
 </body>
 </html>

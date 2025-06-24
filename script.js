@@ -35,6 +35,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   fileInput = document.getElementById('file-input');
   const manualField = document.getElementById('manual-id');
   const manualBtn = document.getElementById('manual-fetch');
+  // Face scan elements
+  const faceScanBtn = document.getElementById('face-scan-btn');
+  const faceModal = document.getElementById('face-modal');
+  const faceVideo = document.getElementById('face-video');
+  const captureFaceBtn = document.getElementById('capture-face');
+  const closeFaceBtn = document.getElementById('close-face');
+  const faceStatus = document.getElementById('face-status');
+  let faceStream = null;
 
   if (!qrRegionId || !profileSection || !profileCard || !scanAgainBtn || !scannerSection || !cameraAccessBtn) {
     console.error('DOM elements not found');
@@ -130,6 +138,72 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (e.key === 'Enter') triggerFetch();
     });
   }
+
+    // ------- Face scan handlers -------
+  async function openFaceModal() {
+    faceModal.classList.remove('hidden');
+    faceStatus.textContent = '';
+    try {
+      faceStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      faceVideo.srcObject = faceStream;
+    } catch (err) {
+      console.error('Face camera error:', err);
+      faceStatus.textContent = 'Camera error: ' + err.message;
+    }
+  }
+
+  function closeFaceModal() {
+    if (faceStream) {
+      faceStream.getTracks().forEach(t => t.stop());
+      faceStream = null;
+    }
+    faceModal.classList.add('hidden');
+  }
+
+  async function captureAndIdentify() {
+    if (!faceStream) {
+      faceStatus.textContent = 'Camera not ready';
+      return;
+    }
+    const track = faceStream.getVideoTracks()[0];
+    const imageCapture = new ImageCapture(track);
+    try {
+      const bitmap = await imageCapture.grabFrame();
+      // Draw to canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      faceStatus.textContent = 'Identifying...';
+
+      const resp = await fetch(`${BACKEND_BASE_URL}/api/face/identify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_data: dataUrl })
+      });
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.error || 'Server error');
+
+      if (json.match && json.profile) {
+        closeFaceModal();
+        showProfileSection();
+        showLoading('Loading profile...');
+        displayProfile({ user: json.profile });
+      } else {
+        faceStatus.textContent = 'No match found.';
+      }
+    } catch (err) {
+      console.error('Face identify error:', err);
+      faceStatus.textContent = 'Error: ' + err.message;
+    }
+  }
+
+  // attach listeners
+  if (faceScanBtn) faceScanBtn.addEventListener('click', openFaceModal);
+  if (closeFaceBtn) closeFaceBtn.addEventListener('click', closeFaceModal);
+  if (captureFaceBtn) captureFaceBtn.addEventListener('click', captureAndIdentify);
 
   checkLibrary();
 });

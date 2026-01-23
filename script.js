@@ -572,14 +572,19 @@ async function fetchProfile(emergencyId) {
     // Try to find user data in different structures
     let userData = null;
     if (data.user) {
+      // Public emergency profile from /api/emergency/:id
       userData = data.user;
     } else if (data.data && data.data.user) {
+      // Wrapped shape: { success, data: { user, ... } }
       userData = data.data.user;
     } else if (data.profile) {
+      // Some APIs may return { profile: { ... } }
       userData = data.profile;
     } else if (data.name || data.bloodGroup || data.emergencyId) {
+      // Flat user object
       userData = data;
     } else if (Array.isArray(data) && data.length > 0) {
+      // Fallback: array of users/profiles
       userData = data[0];
     }
 
@@ -589,7 +594,31 @@ async function fetchProfile(emergencyId) {
       return;
     }
 
-    displayProfile({ user: userData, ...data });
+    // Normalize family members and emergency contacts from any location
+    let familyMembers = [];
+    if (Array.isArray(data.familyMembers)) {
+      familyMembers = data.familyMembers;
+    } else if (data.data && Array.isArray(data.data.familyMembers)) {
+      familyMembers = data.data.familyMembers;
+    }
+
+    let emergencyContactsFromResponse = [];
+    if (Array.isArray(data.emergencyContacts)) {
+      // Shape from /api/emergency/:id public profile
+      emergencyContactsFromResponse = data.emergencyContacts;
+    } else if (data.data && Array.isArray(data.data.emergencyContacts)) {
+      // Wrapped shape
+      emergencyContactsFromResponse = data.data.emergencyContacts;
+    } else if (Array.isArray(userData.emergencyContacts)) {
+      // Sometimes included inside user object
+      emergencyContactsFromResponse = userData.emergencyContacts;
+    }
+
+    displayProfile({
+      user: userData,
+      familyMembers,
+      emergencyContacts: emergencyContactsFromResponse,
+    });
 
   } catch (err) {
     console.error('Error in fetchProfile:', err);

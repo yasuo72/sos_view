@@ -1,13 +1,13 @@
-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MedAssist+ Emergency Viewer</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2.0" />
   <link rel="stylesheet" href="https://unpkg.com/tabler-icons@latest/iconfont/tabler-icons.min.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -17,6 +17,7 @@
 
   <!-- Remove any analytics-related code -->
 </head>
+
 <body>
   <!-- Animated Background -->
   <div class="bg-animation">
@@ -51,10 +52,10 @@
       <!-- Scanner Section -->
       <section id="scanner-section" class="scanner-section">
         <div class="scanner-container">
-         
-            <i class="ti ti-scan"></i>
-            <h2>Emergency QR Scanner</h2>
-          
+
+          <i class="ti ti-scan"></i>
+          <h2>Emergency QR Scanner</h2>
+
           <div class="scanner-frame">
             <div id="qr-reader" class="qr-reader"></div>
             <div class="scanner-overlay">
@@ -76,72 +77,72 @@
               <span>Upload QR Image</span>
             </button>
             <input id="file-input" type="file" accept="image/*" style="display:none" />
-            </div>
-
-            <!-- Manual ID input -->
-            <div class="manual-input">
-              <input id="manual-id" type="text" placeholder="Enter Emergency ID" class="manual-field" />
-              <button id="manual-fetch" class="primary-button" style="margin-left:12px;">
-                <div class="button-icon"><i class="ti ti-search"></i></div>
-                <span>Fetch Profile</span>
-              </button>
-            </div>
           </div>
-          
-          <div class="scanner-info">
-            <div class="info-item">
-              <i class="ti ti-shield-check"></i>
-              <span>Secure & Encrypted</span>
-            </div>
-            <div class="info-item">
-              <i class="ti ti-clock"></i>
-              <span>Real-time Processing</span>
-            </div>
+
+          <!-- Manual ID input -->
+          <div class="manual-input">
+            <input id="manual-id" type="text" placeholder="Enter Emergency ID" class="manual-field" />
+            <button id="manual-fetch" class="primary-button" style="margin-left:12px;">
+              <div class="button-icon"><i class="ti ti-search"></i></div>
+              <span>Fetch Profile</span>
+            </button>
           </div>
         </div>
-      </section>
 
-      <!-- Profile Section -->
-      <section id="profile-section" class="profile-section hidden">
-        <div class="profile-container">
-          <div class="profile-header">
-            <i class="ti ti-user-heart"></i>
-            <h2>Emergency Profile</h2>
+        <div class="scanner-info">
+          <div class="info-item">
+            <i class="ti ti-shield-check"></i>
+            <span>Secure & Encrypted</span>
           </div>
-          <div id="profile-card" class="profile-card">
-            <div class="loader">
-              <div class="medical-cross">
-                <div class="cross-horizontal"></div>
-                <div class="cross-vertical"></div>
-              </div>
-              <span>Retrieving medical data...</span>
-            </div>
+          <div class="info-item">
+            <i class="ti ti-clock"></i>
+            <span>Real-time Processing</span>
           </div>
-          <button id="scan-again" class="secondary-button">
-            <div class="button-icon">
-              <i class="ti ti-refresh"></i>
-            </div>
-            <span>Scan Another QR</span>
-          </button>
         </div>
-      </section>
-    </main>
+  </div>
+  </section>
 
-    <!-- Footer -->
-    <footer class="app-footer">
-      <div class="footer-content">
-        <span>© 2024 MedAssist+</span>
-        <div class="footer-links">
-          <a href="#"><i class="ti ti-shield-lock"></i> Privacy</a>
-          <a href="#"><i class="ti ti-help-circle"></i> Support</a>
+  <!-- Profile Section -->
+  <section id="profile-section" class="profile-section hidden">
+    <div class="profile-container">
+      <div class="profile-header">
+        <i class="ti ti-user-heart"></i>
+        <h2>Emergency Profile</h2>
+      </div>
+      <div id="profile-card" class="profile-card">
+        <div class="loader">
+          <div class="medical-cross">
+            <div class="cross-horizontal"></div>
+            <div class="cross-vertical"></div>
+          </div>
+          <span>Retrieving medical data...</span>
         </div>
       </div>
-    </footer>
+      <button id="scan-again" class="secondary-button">
+        <div class="button-icon">
+          <i class="ti ti-refresh"></i>
+        </div>
+        <span>Scan Another QR</span>
+      </button>
+    </div>
+  </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-content">
+      <span>© 2026 MedAssist+</span>
+      <div class="footer-links">
+        <a href="#"><i class="ti ti-shield-lock"></i> Privacy</a>
+        <a href="#"><i class="ti ti-help-circle"></i> Support</a>
+      </div>
+    </div>
+  </footer>
   </div>
 
   <!-- Floating Action Buttons -->
   <div class="fab-container">
-    <button class="fab" title="Emergency Call">
+    <button id="emergency-call-btn" class="fab" title="Emergency Call">
       <i class="ti ti-phone"></i>
     </button>
     <button class="fab" title="Settings">
@@ -180,4 +181,5 @@
     </div>
   </div>
 </body>
+
 </html>

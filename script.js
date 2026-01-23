@@ -23,6 +23,8 @@ let cameraAccessBtn = null;
 let html5QrCode = null;
 let uploadBtn = null;
 let fileInput = null;
+let emergencyCallBtn = null;
+let currentEmergencyContacts = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
   qrRegionId = document.getElementById('qr-reader');
@@ -33,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   cameraAccessBtn = document.getElementById('camera-access-btn');
   uploadBtn = document.getElementById('upload-btn');
   fileInput = document.getElementById('file-input');
+  emergencyCallBtn = document.getElementById('emergency-call-btn');
   const manualField = document.getElementById('manual-id');
   const manualBtn = document.getElementById('manual-fetch');
   // Face scan elements
@@ -50,6 +53,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!qrRegionId || !profileSection || !profileCard || !scanAgainBtn || !scannerSection || !cameraAccessBtn) {
     console.error('DOM elements not found');
     return;
+  }
+
+  if (emergencyCallBtn) {
+    emergencyCallBtn.addEventListener('click', handleEmergencyCall);
+    emergencyCallBtn.disabled = true;
   }
 
   // Wait for Html5Qrcode library to load with fallback
@@ -274,6 +282,51 @@ document.addEventListener('DOMContentLoaded', async () => {
 function showScannerSection() {
   scannerSection.classList.remove('hidden');
   profileSection.classList.add('hidden');
+  // Ensure the scanner area is brought into view on all devices
+  try {
+    setTimeout(() => {
+      const scannerContainer =
+        document.querySelector('.scanner-container') || scannerSection;
+      if (scannerContainer) {
+        const header = document.querySelector('header');
+        const headerHeight = header ? header.getBoundingClientRect().height : 0;
+        const extraOffset = 16; // small spacing below header
+        const rect = scannerContainer.getBoundingClientRect();
+        const targetY = rect.top + window.scrollY - headerHeight - extraOffset;
+        window.scrollTo({
+          top: Math.max(0, targetY),
+          behavior: 'smooth',
+        });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 50);
+  } catch (_) {
+    // Fallback without smooth behavior
+    window.scrollTo(0, 0);
+  }
+}
+
+function handleEmergencyCall() {
+  if (!currentEmergencyContacts || currentEmergencyContacts.length === 0) {
+    alert('No emergency contact number available for this profile.');
+    return;
+  }
+
+  // Prefer the first contact as primary
+  const primary = currentEmergencyContacts[0];
+  if (!primary.phone) {
+    alert('Emergency contact does not have a valid phone number.');
+    return;
+  }
+
+  // Use a hidden anchor to trigger the tel: link (works better across browsers)
+  const telLink = document.createElement('a');
+  telLink.href = `tel:${encodeURIComponent(primary.phone)}`;
+  telLink.style.display = 'none';
+  document.body.appendChild(telLink);
+  telLink.click();
+  document.body.removeChild(telLink);
 }
 
 function showProfileSection() {
@@ -580,20 +633,49 @@ function displayProfile(profile) {
     medications = medications.split(',').map(m => m.trim()).filter(m => m);
   }
 
-  // Handle emergency contacts
-  const emergencyContactsList = emergencyContacts.length > 0 ? emergencyContacts : (userData.emergencyContacts || userData.contacts || []);
+  // Handle emergency contacts (normalize to { name, phone })
+  let emergencyContactsList = emergencyContacts.length > 0
+    ? emergencyContacts
+    : (userData.emergencyContacts || userData.contacts || []);
+
+  if (!Array.isArray(emergencyContactsList)) {
+    emergencyContactsList = emergencyContactsList ? [emergencyContactsList] : [];
+  }
+
+  emergencyContactsList = emergencyContactsList
+    .map(c => {
+      if (!c) return null;
+      if (typeof c === 'string') {
+        return { name: 'Emergency Contact', phone: c };
+      }
+      const phone = c.phone || c.phoneNumber || c.mobile || c.contactNumber || '';
+      const name = c.name || c.label || 'Emergency Contact';
+      if (!phone) return null;
+      return { name, phone };
+    })
+    .filter(Boolean);
 
   // Additional fields that might be useful
   const age = userData.age || userData.dateOfBirth || '';
   const phone = userData.phone || userData.phoneNumber || userData.mobile || '';
   const email = userData.email || userData.emailAddress || '';
 
-  console.log('Extracted data:', { 
-    name, bloodGroup, allergies, conditions, medications, emergencyContacts: emergencyContactsList, age, phone, email
+  console.log('Extracted data:', {
+    name,
+    bloodGroup,
+    allergies,
+    conditions,
+    medications,
+    emergencyContacts: emergencyContactsList,
+    age,
+    phone,
+    email,
   });
 
   // Show all available data for debugging
-  const allFields = Object.keys(userData).map(key => `${key}: ${JSON.stringify(userData[key])}`).join('<br>');
+  const allFields = Object.keys(userData)
+    .map(key => `${key}: ${JSON.stringify(userData[key])}`)
+    .join('<br>');
 
   profileContainer.innerHTML = `
     <div id="profile-card" class="profile-card">
@@ -629,4 +711,31 @@ function displayProfile(profile) {
       </div>
     </div>
   `;
+
+  // Store normalized emergency contacts for the call FAB
+  currentEmergencyContacts = emergencyContactsList;
+  if (emergencyCallBtn) {
+    emergencyCallBtn.disabled = currentEmergencyContacts.length === 0;
+  }
+
+  // After rendering the profile card, ensure it is positioned near the top
+  // of the viewport (just below the header) to avoid large empty space above.
+  try {
+    setTimeout(() => {
+      const section =
+        document.getElementById('profile-section') || profileContainer;
+      const header = document.querySelector('header');
+      const headerHeight = header ? header.getBoundingClientRect().height : 0;
+      const extraOffset = 16; // small spacing below header
+      const rect = section.getBoundingClientRect();
+      const targetY = rect.top + window.scrollY - headerHeight - extraOffset;
+      window.scrollTo({
+        top: Math.max(0, targetY),
+        behavior: 'smooth',
+      });
+    }, 50);
+  } catch (_) {
+    // If anything goes wrong, fall back to scrolling to top
+    window.scrollTo(0, 0);
+  }
 }
